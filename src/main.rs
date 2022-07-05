@@ -1,31 +1,97 @@
-use serde_json::Value;
+use serde::Deserialize;
 use std::collections::HashMap;
+use std::io;
 use std::io::Write;
-use std::{fmt, io};
 
-enum Atom {
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+enum Expression {
+    Boolean(bool),
     String(String),
     Number(f64),
+    List(Vec<Expression>),
 }
 
-impl fmt::Display for Atom {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Expression {
+    fn must_string(self) -> String {
         match self {
-            Atom::String(x) => {
-                write!(f, "{}\n", x)
+            Expression::Boolean(_) => {
+                panic!("not a string")
             }
-            Atom::Number(x) => {
-                write!(f, "{}\n", x)
+            Expression::String(s) => return s,
+            Expression::Number(_) => {
+                panic!("not a string")
+            }
+            Expression::List(_) => {
+                panic!("not a string")
             }
         }
     }
 }
 
+#[derive(Clone, Debug)]
+struct Environment {
+    env: HashMap<String, Expression>,
+}
+
+impl Environment {
+    fn new_with(self, k: String, v: Expression) -> Self {
+        let mut env = self.env.clone();
+        env.insert(k, v);
+        return Environment { env };
+    }
+}
+
+fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environment), &'static str> {
+    return match expr {
+        Expression::Boolean(_) => Ok((expr, env)),
+        Expression::String(ref x) => {
+            // Check if this string is actually a variable (present in the environment).
+            match env.env.get(x) {
+                Some(y) => Ok((y.clone(), env.clone())),
+                None => Ok((expr.clone(), env.clone())),
+            }
+        }
+        Expression::Number(_) => Ok((expr, env)),
+        Expression::List(x) => {
+            let first = x.get(0).unwrap();
+            return match first {
+                Expression::Boolean(_) => Err("blah"),
+                Expression::String(y) => match y.as_str() {
+                    "define" => {
+                        let id = x.get(1).unwrap().clone().must_string();
+                        let expr = evaluate(x.get(2).unwrap().clone(), env.clone()).unwrap();
+                        let env = env.new_with(id, expr.0);
+                        Ok((Expression::Boolean(true), env))
+                    }
+                    "+" => {
+                        let lhs = x.get(1).unwrap();
+                        let rhs = x.get(2).unwrap();
+                        let result = match (lhs, rhs) {
+                            (Expression::Number(x), Expression::Number(y)) => {
+                                Expression::Number(x + y)
+                            }
+                            _ => {
+                                panic!("can only add numbers")
+                            }
+                        };
+                        return Ok((result, env));
+                    }
+                    _ => return evaluate(first.clone(), env),
+                },
+                Expression::Number(_) => Err("whoops"),
+                Expression::List(_) => Err("whoops"),
+            };
+        }
+    };
+}
+
 fn main() {
-    // REPL.
-    let mut env = HashMap::<String, Atom>::new();
+    let mut env = Environment {
+        env: HashMap::<String, Expression>::new(),
+    };
+
     loop {
-        // Print prompt and flush to ensure it makes it to screen.
         print!("> ");
         io::stdout().flush().unwrap();
 
@@ -33,62 +99,16 @@ fn main() {
         let mut buffer = String::new();
         let stdin = io::stdin();
         stdin.read_line(&mut buffer).unwrap();
-        let input: Vec<Value> = match serde_json::from_str(&buffer) {
+        let input: Expression = match serde_json::from_str(&buffer) {
             Ok(v) => v,
-            Err(_) => {
-                print!("invalid input\n");
+            Err(e) => {
+                println!("invalid input: {e}\n");
                 continue;
             }
         };
 
-        // Handle empty input.
-        if input.len() == 0 {
-            print!("{:?}\n", input);
-            continue;
-        }
-
-        // Evaluate input.
-        match &input[0] {
-            Value::Null => {}
-            Value::Bool(_) => {}
-            Value::Number(_) => {}
-            Value::String(x) => match x.as_str() {
-                "define" => {
-                    let symbol = match &input[1] {
-                        Value::String(y) => y,
-                        _ => {
-                            print!("invalid input\n");
-                            continue;
-                        }
-                    };
-                    match &input[2] {
-                        Value::Number(y) => {
-                            env.insert(symbol.to_string(), Atom::Number(y.as_f64().unwrap()));
-                        }
-                        Value::String(y) => {
-                            env.insert(symbol.to_string(), Atom::String(y.to_string()));
-                        }
-                        _ => {
-                            print!("invalid input\n");
-                            continue;
-                        }
-                    }
-                }
-                _ => {
-                    // Check environment.
-                    if env.get(x).is_some() {
-                        // Found symbol in environment.
-                        print!("{}", env.get(x).unwrap());
-                        continue;
-                    }
-                    print!("unknown symbol\n");
-                    continue;
-                }
-            },
-            Value::Array(_) => {}
-            Value::Object(_) => {}
-        }
-
-        print!("{:?}\n", input);
+        let (expr, new_env) = evaluate(input, env.clone()).unwrap();
+        println!("{:?}", expr);
+        env = new_env;
     }
 }
