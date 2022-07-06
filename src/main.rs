@@ -46,7 +46,12 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
     return match expr {
         Expression::Boolean(_) => Ok((expr, env)),
         Expression::String(ref x) => {
-            // Check if this string is actually a variable (present in the environment).
+            // Actual strings are double quoted.
+            if x.starts_with("\"") && x.ends_with("\"") {
+                return Ok((expr.clone(), env.clone()));
+            }
+
+            // Not a string literal, try and find symbol in environment.
             match env.env.get(x) {
                 Some(y) => Ok((y.clone(), env.clone())),
                 None => Ok((expr.clone(), env.clone())),
