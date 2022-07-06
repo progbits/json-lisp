@@ -35,6 +35,12 @@ struct Environment {
 }
 
 impl Environment {
+    fn new() -> Environment {
+        Environment {
+            env: HashMap::new(),
+        }
+    }
+
     fn new_with(self, k: String, v: Expression) -> Self {
         let mut env = self.env.clone();
         env.insert(k, v);
