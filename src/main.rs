@@ -136,7 +136,8 @@ mod tests {
 
         let (result, new_env) = evaluate(expr, env).unwrap();
 
-        assert_eq!(result, Expression::List(vec![]))
+        assert_eq!(result, Expression::List(vec![]));
+        assert!(new_env.env.is_empty())
     }
 
     #[test]
