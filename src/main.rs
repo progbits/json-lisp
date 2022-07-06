@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::io;
 use std::io::Write;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(untagged)]
 enum Expression {
     Boolean(bool),
@@ -58,7 +58,11 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
             }
         }
         Expression::Number(_) => Ok((expr, env)),
-        Expression::List(x) => {
+        Expression::List(ref x) => {
+            if x.len() == 0 {
+                return Ok((expr.clone(), env.clone()));
+            }
+
             let first = x.get(0).unwrap();
             return match first {
                 Expression::Boolean(_) => Err("blah"),
@@ -115,5 +119,23 @@ fn main() {
         let (expr, new_env) = evaluate(input, env.clone()).unwrap();
         println!("{:?}", expr);
         env = new_env;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{evaluate, Environment, Expression};
+    use std::collections::HashMap;
+
+    #[test]
+    fn empty_expression() {
+        let env = Environment {
+            env: HashMap::new(),
+        };
+        let expr = Expression::List(vec![]);
+
+        let (result, new_env) = evaluate(expr, env).unwrap();
+
+        assert_eq!(result, Expression::List(vec![]))
     }
 }
