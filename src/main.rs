@@ -246,30 +246,23 @@ mod tests {
 
     #[test]
     fn basic_variable_definition() {
-        let env = Environment {
-            env: HashMap::new(),
-        };
-        let expr = Expression::List(vec![
-            Expression::String("define".to_string()),
-            Expression::String("pi".to_string()),
-            Expression::Number(3.14),
-        ]);
-
-        let (result, new_env) = evaluate(expr, env).unwrap();
-
-        assert_eq!(result, Expression::Boolean(true));
-        match new_env.env.get("pi") {
-            Some(x) => match x {
-                Expression::Number(v) => {
-                    assert_eq!(*v, 3.14 as f64)
-                }
-                _ => {
-                    panic!()
-                }
+        let test_cases: Vec<TestCase> = vec![TestCase {
+            expr: Expression::List(vec![
+                Expression::String("define".to_string()),
+                Expression::String("pi".to_string()),
+                Expression::Number(3.14),
+            ]),
+            expr_env: Environment::new(),
+            result: Expression::Boolean(true),
+            result_env: Environment {
+                env: HashMap::from([("pi".to_string(), Expression::Number(3.14))]),
             },
-            None => {
-                panic!()
-            }
+        }];
+
+        for case in test_cases.iter() {
+            let (result, result_env) = evaluate(case.expr.clone(), case.expr_env.clone()).unwrap();
+            assert_eq!(result, case.result);
+            assert_eq!(result_env, case.result_env);
         }
     }
 }
