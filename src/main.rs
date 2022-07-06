@@ -141,6 +141,23 @@ mod tests {
     }
 
     #[test]
+    fn basic_expression() {
+        let env = Environment {
+            env: HashMap::new(),
+        };
+        let expr = Expression::List(vec![
+            Expression::String("+".to_string()),
+            Expression::Number(1.0),
+            Expression::Number(2.14),
+        ]);
+
+        let (result, new_env) = evaluate(expr, env).unwrap();
+
+        assert_eq!(result, Expression::Number(3.14));
+        assert!(new_env.env.is_empty())
+    }
+
+    #[test]
     fn basic_variable_definition() {
         let env = Environment {
             env: HashMap::new(),
