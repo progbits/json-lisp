@@ -92,6 +92,45 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                         };
                         return Ok((result, env));
                     }
+                    "-" => {
+                        let lhs = x.get(1).unwrap();
+                        let rhs = x.get(2).unwrap();
+                        let result = match (lhs, rhs) {
+                            (Expression::Number(x), Expression::Number(y)) => {
+                                Expression::Number(x - y)
+                            }
+                            _ => {
+                                panic!("can only add numbers")
+                            }
+                        };
+                        return Ok((result, env));
+                    }
+                    "*" => {
+                        let lhs = x.get(1).unwrap();
+                        let rhs = x.get(2).unwrap();
+                        let result = match (lhs, rhs) {
+                            (Expression::Number(x), Expression::Number(y)) => {
+                                Expression::Number(x * y)
+                            }
+                            _ => {
+                                panic!("can only add numbers")
+                            }
+                        };
+                        return Ok((result, env));
+                    }
+                    "/" => {
+                        let lhs = x.get(1).unwrap();
+                        let rhs = x.get(2).unwrap();
+                        let result = match (lhs, rhs) {
+                            (Expression::Number(x), Expression::Number(y)) => {
+                                Expression::Number(x / y)
+                            }
+                            _ => {
+                                panic!("can only add numbers")
+                            }
+                        };
+                        return Ok((result, env));
+                    }
                     _ => return evaluate(first.clone(), env),
                 },
                 Expression::Number(_) => Err("whoops"),
@@ -155,16 +194,48 @@ mod tests {
 
     #[test]
     fn basic_expression() {
-        let test_cases: Vec<TestCase> = vec![TestCase {
-            expr: Expression::List(vec![
-                Expression::String("+".to_string()),
-                Expression::Number(1.0),
-                Expression::Number(2.14),
-            ]),
-            expr_env: Environment::new(),
-            result: Expression::Number(3.14),
-            result_env: Environment::new(),
-        }];
+        let test_cases: Vec<TestCase> = vec![
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("+".to_string()),
+                    Expression::Number(1.0),
+                    Expression::Number(2.14),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Number(3.14),
+                result_env: Environment::new(),
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("-".to_string()),
+                    Expression::Number(3.14),
+                    Expression::Number(1.0),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Number(2.14),
+                result_env: Environment::new(),
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("*".to_string()),
+                    Expression::Number(3.14),
+                    Expression::Number(2.0),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Number(6.28),
+                result_env: Environment::new(),
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("/".to_string()),
+                    Expression::Number(6.28),
+                    Expression::Number(2.0),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Number(3.14),
+                result_env: Environment::new(),
+            },
+        ];
 
         for case in test_cases.iter() {
             let (result, result_env) = evaluate(case.expr.clone(), case.expr_env.clone()).unwrap();
