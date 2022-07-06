@@ -29,7 +29,7 @@ impl Expression {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct Environment {
     env: HashMap<String, Expression>,
 }
@@ -133,6 +133,13 @@ mod tests {
     use crate::{evaluate, Environment, Expression};
     use std::collections::HashMap;
 
+    struct TestCase {
+        expr: Expression,
+        expr_env: Environment,
+        result: Expression,
+        result_env: Environment,
+    }
+
     #[test]
     fn empty_expression() {
         let env = Environment {
@@ -148,19 +155,22 @@ mod tests {
 
     #[test]
     fn basic_expression() {
-        let env = Environment {
-            env: HashMap::new(),
-        };
-        let expr = Expression::List(vec![
-            Expression::String("+".to_string()),
-            Expression::Number(1.0),
-            Expression::Number(2.14),
-        ]);
+        let test_cases: Vec<TestCase> = vec![TestCase {
+            expr: Expression::List(vec![
+                Expression::String("+".to_string()),
+                Expression::Number(1.0),
+                Expression::Number(2.14),
+            ]),
+            expr_env: Environment::new(),
+            result: Expression::Number(3.14),
+            result_env: Environment::new(),
+        }];
 
-        let (result, new_env) = evaluate(expr, env).unwrap();
-
-        assert_eq!(result, Expression::Number(3.14));
-        assert!(new_env.env.is_empty())
+        for case in test_cases.iter() {
+            let (result, result_env) = evaluate(case.expr.clone(), case.expr_env.clone()).unwrap();
+            assert_eq!(result, case.result);
+            assert_eq!(result_env, case.result_env);
+        }
     }
 
     #[test]
