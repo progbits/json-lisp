@@ -138,4 +138,33 @@ mod tests {
 
         assert_eq!(result, Expression::List(vec![]))
     }
+
+    #[test]
+    fn basic_variable_definition() {
+        let env = Environment {
+            env: HashMap::new(),
+        };
+        let expr = Expression::List(vec![
+            Expression::String("define".to_string()),
+            Expression::String("pi".to_string()),
+            Expression::Number(3.14),
+        ]);
+
+        let (result, new_env) = evaluate(expr, env).unwrap();
+
+        assert_eq!(result, Expression::Boolean(true));
+        match new_env.env.get("pi") {
+            Some(x) => match x {
+                Expression::Number(v) => {
+                    assert_eq!(*v, 3.14 as f64)
+                }
+                _ => {
+                    panic!()
+                }
+            },
+            None => {
+                panic!()
+            }
+        }
+    }
 }
