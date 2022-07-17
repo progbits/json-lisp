@@ -10,6 +10,11 @@ enum Expression {
     String(String),
     Number(f64),
     List(Vec<Expression>),
+    Lambda {
+        formals: Vec<Expression>,
+        body: Box<Expression>,
+        env: HashMap<String, Expression>,
+    },
 }
 
 impl Expression {
@@ -24,6 +29,27 @@ impl Expression {
             }
             Expression::List(_) => {
                 panic!("not a string")
+            }
+            Expression::Lambda { .. } => {
+                panic!("not a string")
+            }
+        }
+    }
+
+    fn must_list(self) -> Vec<Expression> {
+        match self {
+            Expression::Boolean(_) => {
+                panic!("not a list")
+            }
+            Expression::String(_) => {
+                panic!("not a list")
+            }
+            Expression::Number(_) => {
+                panic!("not a list")
+            }
+            Expression::List(x) => return x,
+            Expression::Lambda { .. } => {
+                panic!("not a list")
             }
         }
     }
@@ -78,6 +104,19 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                         let expr = evaluate(x.get(2).unwrap().clone(), env.clone()).unwrap();
                         let env = env.new_with(id, expr.0);
                         Ok((Expression::Boolean(true), env))
+                    }
+                    "lambda" => {
+                        let formals = x.get(1).unwrap().clone().must_list();
+                        let body = x.get(2).unwrap();
+                        let env = env.clone();
+                        Ok((
+                            Expression::Lambda {
+                                formals,
+                                body: Box::new(body.clone()),
+                                env: env.clone().env,
+                            },
+                            env.clone(),
+                        ))
                     }
                     "+" => {
                         let lhs = x.get(1).unwrap();
@@ -135,8 +174,10 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                 },
                 Expression::Number(_) => Err("whoops"),
                 Expression::List(_) => Err("whoops"),
+                Expression::Lambda { .. } => Err("whoops"),
             };
         }
+        Expression::Lambda { .. } => Err("whoops"),
     };
 }
 
@@ -256,6 +297,47 @@ mod tests {
             result: Expression::Boolean(true),
             result_env: Environment {
                 env: HashMap::from([("pi".to_string(), Expression::Number(3.14))]),
+            },
+        }];
+
+        for case in test_cases.iter() {
+            let (result, result_env) = evaluate(case.expr.clone(), case.expr_env.clone()).unwrap();
+            assert_eq!(result, case.result);
+            assert_eq!(result_env, case.result_env);
+        }
+    }
+
+    #[test]
+    fn basic_procedure_definition() {
+        let test_cases: Vec<TestCase> = vec![TestCase {
+            expr: Expression::List(vec![
+                Expression::String("define".to_string()),
+                Expression::String("square".to_string()),
+                Expression::List(vec![
+                    Expression::String("lambda".to_string()),
+                    Expression::List(vec![Expression::String("x".to_string())]),
+                    Expression::List(vec![
+                        Expression::String("*".to_string()),
+                        Expression::String("x".to_string()),
+                        Expression::String("x".to_string()),
+                    ]),
+                ]),
+            ]),
+            expr_env: Environment::new(),
+            result: Expression::Boolean(true),
+            result_env: Environment {
+                env: HashMap::from([(
+                    "square".to_string(),
+                    Expression::Lambda {
+                        formals: vec![Expression::String("x".to_string())],
+                        body: Box::new(Expression::List(vec![
+                            Expression::String("*".to_string()),
+                            Expression::String("x".to_string()),
+                            Expression::String("x".to_string()),
+                        ])),
+                        env: HashMap::new(),
+                    },
+                )]),
             },
         }];
 
