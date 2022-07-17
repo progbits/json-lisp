@@ -92,6 +92,18 @@ impl Environment {
     }
 }
 
+fn get_op(op: String) -> impl Fn(f64, f64) -> f64 {
+    match op.as_str() {
+        "+" => |x, y| x + y,
+        "-" => |x, y| x - y,
+        "*" => |x, y| x * y,
+        "/" => |x, y| x / y,
+        _ => {
+            panic!("unknown operator")
+        }
+    }
+}
+
 fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environment), &'static str> {
     return match expr {
         Expression::Boolean(_) => Ok((expr, env)),
@@ -136,56 +148,18 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                             env.clone(),
                         ))
                     }
-                    "+" => {
+                    "+" | "-" | "*" | "/" => {
+                        let op = get_op(y.to_string());
                         let lhs = x.get(1).unwrap();
                         let rhs = x.get(2).unwrap();
                         let result = match (lhs, rhs) {
                             (Expression::Number(x), Expression::Number(y)) => {
-                                Expression::Number(x + y)
-                            }
-                            _ => {
-                                panic!("can only add numbers")
-                            }
-                        };
-                        return Ok((result, env));
-                    }
-                    "-" => {
-                        let lhs = x.get(1).unwrap();
-                        let rhs = x.get(2).unwrap();
-                        let result = match (lhs, rhs) {
-                            (Expression::Number(x), Expression::Number(y)) => {
-                                Expression::Number(x - y)
-                            }
-                            _ => {
-                                panic!("can only add numbers")
-                            }
-                        };
-                        return Ok((result, env));
-                    }
-                    "*" => {
-                        let lhs = x.get(1).unwrap();
-                        let rhs = x.get(2).unwrap();
-                        let result = match (lhs, rhs) {
-                            (Expression::Number(x), Expression::Number(y)) => {
-                                Expression::Number(x * y)
+                                Expression::Number(op(*x, *y))
                             }
                             (Expression::String(x), Expression::String(y)) => {
                                 let lhs_env = env.env.get(x).unwrap().clone().must_number();
                                 let rhs_env = env.env.get(y).unwrap().clone().must_number();
-                                Expression::Number(lhs_env * rhs_env)
-                            }
-                            _ => {
-                                panic!("can only add numbers")
-                            }
-                        };
-                        return Ok((result, env));
-                    }
-                    "/" => {
-                        let lhs = x.get(1).unwrap();
-                        let rhs = x.get(2).unwrap();
-                        let result = match (lhs, rhs) {
-                            (Expression::Number(x), Expression::Number(y)) => {
-                                Expression::Number(x / y)
+                                Expression::Number(op(lhs_env, rhs_env))
                             }
                             _ => {
                                 panic!("can only add numbers")
