@@ -36,6 +36,24 @@ impl Expression {
         }
     }
 
+    fn must_number(self) -> f64 {
+        match self {
+            Expression::Boolean(_) => {
+                panic!("not a number")
+            }
+            Expression::String(_) => {
+                panic!("not a number")
+            }
+            Expression::Number(x) => return x,
+            Expression::List(_) => {
+                panic!("not a string")
+            }
+            Expression::Lambda { .. } => {
+                panic!("not a string")
+            }
+        }
+    }
+
     fn must_list(self) -> Vec<Expression> {
         match self {
             Expression::Boolean(_) => {
@@ -151,6 +169,11 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                             (Expression::Number(x), Expression::Number(y)) => {
                                 Expression::Number(x * y)
                             }
+                            (Expression::String(x), Expression::String(y)) => {
+                                let lhs_env = env.env.get(x).unwrap().clone().must_number();
+                                let rhs_env = env.env.get(y).unwrap().clone().must_number();
+                                Expression::Number(lhs_env * rhs_env)
+                            }
                             _ => {
                                 panic!("can only add numbers")
                             }
@@ -170,14 +193,45 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                         };
                         return Ok((result, env));
                     }
-                    _ => return evaluate(first.clone(), env),
+                    v => {
+                        // Look up the symbol in the current environment.
+                        let v_env = env.env.get(v);
+                        match v_env {
+                            None => return Err("whoops failed to find in environment"),
+                            Some(y) => {
+                                match y.clone() {
+                                    Expression::Lambda {
+                                        formals,
+                                        body,
+                                        mut env,
+                                    } => {
+                                        // Populate environment with formal parameters.
+                                        for (i, f) in formals.iter().enumerate().clone() {
+                                            env.insert(
+                                                f.clone().must_string(),
+                                                x.get(1 + i).unwrap().clone(),
+                                            );
+                                        }
+                                        // Evaluate the body of the expression.
+                                        return evaluate(
+                                            *body.clone(),
+                                            Environment { env: env.clone() },
+                                        );
+                                    }
+                                    _ => return Err("whoops"),
+                                }
+                            }
+                        }
+                    }
                 },
                 Expression::Number(_) => Err("whoops"),
                 Expression::List(_) => Err("whoops"),
                 Expression::Lambda { .. } => Err("whoops"),
             };
         }
-        Expression::Lambda { .. } => Err("whoops"),
+        Expression::Lambda { formals, body, env } => {
+            return Err("whoops");
+        }
     };
 }
 
@@ -308,38 +362,66 @@ mod tests {
     }
 
     #[test]
-    fn basic_procedure_definition() {
-        let test_cases: Vec<TestCase> = vec![TestCase {
-            expr: Expression::List(vec![
-                Expression::String("define".to_string()),
-                Expression::String("square".to_string()),
-                Expression::List(vec![
-                    Expression::String("lambda".to_string()),
-                    Expression::List(vec![Expression::String("x".to_string())]),
+    fn basic_procedures() {
+        let test_cases: Vec<TestCase> = vec![
+            // Lambda definition.
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("define".to_string()),
+                    Expression::String("square".to_string()),
                     Expression::List(vec![
-                        Expression::String("*".to_string()),
-                        Expression::String("x".to_string()),
-                        Expression::String("x".to_string()),
-                    ]),
-                ]),
-            ]),
-            expr_env: Environment::new(),
-            result: Expression::Boolean(true),
-            result_env: Environment {
-                env: HashMap::from([(
-                    "square".to_string(),
-                    Expression::Lambda {
-                        formals: vec![Expression::String("x".to_string())],
-                        body: Box::new(Expression::List(vec![
+                        Expression::String("lambda".to_string()),
+                        Expression::List(vec![Expression::String("x".to_string())]),
+                        Expression::List(vec![
                             Expression::String("*".to_string()),
                             Expression::String("x".to_string()),
                             Expression::String("x".to_string()),
-                        ])),
-                        env: HashMap::new(),
-                    },
-                )]),
+                        ]),
+                    ]),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Boolean(true),
+                result_env: Environment {
+                    env: HashMap::from([(
+                        "square".to_string(),
+                        Expression::Lambda {
+                            formals: vec![Expression::String("x".to_string())],
+                            body: Box::new(Expression::List(vec![
+                                Expression::String("*".to_string()),
+                                Expression::String("x".to_string()),
+                                Expression::String("x".to_string()),
+                            ])),
+                            env: HashMap::new(),
+                        },
+                    )]),
+                },
             },
-        }];
+            // Lambda evaluation, empty environment.
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("square".to_string()),
+                    Expression::Number(2.0),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([(
+                        "square".to_string(),
+                        Expression::Lambda {
+                            formals: vec![Expression::String("x".to_string())],
+                            body: Box::new(Expression::List(vec![
+                                Expression::String("*".to_string()),
+                                Expression::String("x".to_string()),
+                                Expression::String("x".to_string()),
+                            ])),
+                            env: HashMap::new(),
+                        },
+                    )]),
+                },
+                result: Expression::Number(4.0),
+                result_env: Environment {
+                    env: HashMap::from([("x".to_string(), Expression::Number(2.0))]),
+                },
+            },
+        ];
 
         for case in test_cases.iter() {
             let (result, result_env) = evaluate(case.expr.clone(), case.expr_env.clone()).unwrap();
