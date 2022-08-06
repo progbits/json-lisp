@@ -59,15 +59,13 @@ impl Environment {
     }
 }
 
-fn get_op(op: String) -> impl Fn(f64, f64) -> f64 {
+fn get_op(op: String) -> Result<Box<dyn Fn(f64, f64) -> f64>, &'static str> {
     match op.as_str() {
-        "+" => |x, y| x + y,
-        "-" => |x, y| x - y,
-        "*" => |x, y| x * y,
-        "/" => |x, y| x / y,
-        _ => {
-            panic!("unknown operator")
-        }
+        "+" => Ok(Box::new(|x, y| x + y)),
+        "-" => Ok(Box::new(|x, y| x - y)),
+        "*" => Ok(Box::new(|x, y| x * y)),
+        "/" => Ok(Box::new(|x, y| x / y)),
+        _ => Err("unknown operator"),
     }
 }
 
@@ -97,13 +95,13 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                 Expression::Boolean(_) => Err("blah"),
                 Expression::String(y) => match y.as_str() {
                     "define" => {
-                        let id = x.get(1).unwrap().clone().must_string();
+                        let id = x.get(1).unwrap().clone().must_string()?;
                         let expr = evaluate(x.get(2).unwrap().clone(), env.clone()).unwrap();
                         let env = env.new_with(id, expr.0);
                         Ok((Expression::Boolean(true), env))
                     }
                     "lambda" => {
-                        let formals = x.get(1).unwrap().clone().must_list();
+                        let formals = x.get(1).unwrap().clone().must_list()?;
                         let body = x.get(2).unwrap();
                         let env = env.clone();
                         Ok((
@@ -116,7 +114,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                         ))
                     }
                     "+" | "-" | "*" | "/" => {
-                        let op = get_op(y.to_string());
+                        let op = get_op(y.to_string())?;
                         let lhs = x.get(1).unwrap();
                         let rhs = x.get(2).unwrap();
                         let result = match (lhs, rhs) {
@@ -124,13 +122,11 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                 Expression::Number(op(*x, *y))
                             }
                             (Expression::String(x), Expression::String(y)) => {
-                                let lhs_env = env.env.get(x).unwrap().clone().must_number();
-                                let rhs_env = env.env.get(y).unwrap().clone().must_number();
+                                let lhs_env = env.env.get(x).unwrap().clone().must_number()?;
+                                let rhs_env = env.env.get(y).unwrap().clone().must_number()?;
                                 Expression::Number(op(lhs_env, rhs_env))
                             }
-                            _ => {
-                                panic!("can only add numbers")
-                            }
+                            _ => return Err("can only add numbers"),
                         };
                         return Ok((result, env));
                     }
@@ -149,7 +145,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                         // Populate environment with formal parameters.
                                         for (i, f) in formals.iter().enumerate().clone() {
                                             env.insert(
-                                                f.clone().must_string(),
+                                                f.clone().must_string()?,
                                                 x.get(1 + i).unwrap().clone(),
                                             );
                                         }
@@ -197,9 +193,15 @@ fn main() {
             }
         };
 
-        let (expr, new_env) = evaluate(input, env.clone()).unwrap();
-        println!("{:?}", expr);
-        env = new_env;
+        match evaluate(input, env.clone()) {
+            Ok((expr, new_env)) => {
+                println!("{:?}", expr);
+                env = new_env;
+            }
+            Err(e) => {
+                println!("{e}")
+            }
+        }
     }
 }
 
@@ -277,6 +279,49 @@ mod tests {
             let (result, result_env) = evaluate(case.expr.clone(), case.expr_env.clone()).unwrap();
             assert_eq!(result, case.result);
             assert_eq!(result_env, case.result_env);
+        }
+    }
+
+    #[test]
+    fn expression_error() {
+        let test_cases: Vec<TestCase> = vec![
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("+".to_string()),
+                    Expression::String("1.0".to_string()),
+                    Expression::Number(2.14),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Number(3.14),
+                result_env: Environment::new(),
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("*".to_string()),
+                    Expression::Number(1.0),
+                    Expression::String("2.14".to_string()),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Number(3.14),
+                result_env: Environment::new(),
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("&".to_string()),
+                    Expression::Number(1.0),
+                    Expression::Number(2.14),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Number(3.14),
+                result_env: Environment::new(),
+            },
+        ];
+
+        for case in test_cases.iter() {
+            match evaluate(case.expr.clone(), case.expr_env.clone()) {
+                Ok(_) => panic!("expected error"),
+                _ => (),
+            }
         }
     }
 
