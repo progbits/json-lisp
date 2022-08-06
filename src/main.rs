@@ -18,57 +18,24 @@ enum Expression {
 }
 
 impl Expression {
-    fn must_string(self) -> String {
+    fn must_string(self) -> Result<String, &'static str> {
         match self {
-            Expression::Boolean(_) => {
-                panic!("not a string")
-            }
-            Expression::String(s) => return s,
-            Expression::Number(_) => {
-                panic!("not a string")
-            }
-            Expression::List(_) => {
-                panic!("not a string")
-            }
-            Expression::Lambda { .. } => {
-                panic!("not a string")
-            }
+            Expression::String(s) => return Ok(s),
+            _ => Err("not a string"),
         }
     }
 
-    fn must_number(self) -> f64 {
-        match self {
-            Expression::Boolean(_) => {
-                panic!("not a number")
-            }
-            Expression::String(_) => {
-                panic!("not a number")
-            }
-            Expression::Number(x) => return x,
-            Expression::List(_) => {
-                panic!("not a string")
-            }
-            Expression::Lambda { .. } => {
-                panic!("not a string")
-            }
-        }
+    fn must_number(self) -> Result<f64, &'static str> {
+        return match self {
+            Expression::Number(x) => Ok(x),
+            _ => Err("not a number"),
+        };
     }
 
-    fn must_list(self) -> Vec<Expression> {
+    fn must_list(self) -> Result<Vec<Expression>, &'static str> {
         match self {
-            Expression::Boolean(_) => {
-                panic!("not a list")
-            }
-            Expression::String(_) => {
-                panic!("not a list")
-            }
-            Expression::Number(_) => {
-                panic!("not a list")
-            }
-            Expression::List(x) => return x,
-            Expression::Lambda { .. } => {
-                panic!("not a list")
-            }
+            Expression::List(x) => return Ok(x),
+            _ => Err("not a list"),
         }
     }
 }
