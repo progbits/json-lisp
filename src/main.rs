@@ -171,7 +171,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                             Environment { env: env.clone() },
                                         );
                                     }
-                                    _ => return Err("whoops"),
+                                    _ => Err("cannot call value"),
                                 }
                             }
                         }
@@ -376,6 +376,26 @@ mod tests {
                     Expression::Number(2.14),
                 ]),
                 expr_env: Environment::new(),
+                result: Expression::Number(3.14),
+                result_env: Environment::new(),
+            },
+            // Can't evaluate non-lambda names.
+            TestCase {
+                expr: Expression::List(vec![Expression::String("x".to_string())]),
+                expr_env: Environment {
+                    env: HashMap::from([("x".to_string(), Expression::Number(3.0))]),
+                },
+                result: Expression::Number(3.14),
+                result_env: Environment::new(),
+            },
+            TestCase {
+                expr: Expression::List(vec![Expression::String("x".to_string())]),
+                expr_env: Environment {
+                    env: HashMap::from([(
+                        "x".to_string(),
+                        Expression::String("hello".to_string()),
+                    )]),
+                },
                 result: Expression::Number(3.14),
                 result_env: Environment::new(),
             },
