@@ -53,7 +53,7 @@ impl Environment {
     }
 
     fn new_with(self, k: String, v: Expression) -> Self {
-        let mut env = self.env.clone();
+        let mut env = self.env;
         env.insert(k, v);
         return Environment { env };
     }
@@ -75,19 +75,19 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
         Expression::String(ref x) => {
             // Actual strings are double quoted.
             if x.starts_with("\"") && x.ends_with("\"") {
-                return Ok((expr.clone(), env.clone()));
+                return Ok((expr, env));
             }
 
             // Not a string literal, try and find symbol in environment.
             match env.env.get(x) {
-                Some(y) => Ok((y.clone(), env.clone())),
-                None => Ok((expr.clone(), env.clone())),
+                Some(y) => Ok((y.clone(), env)),
+                None => Ok((expr, env)),
             }
         }
         Expression::Number(_) => Ok((expr, env)),
         Expression::List(ref x) => {
             if x.len() == 0 {
-                return Ok((expr.clone(), env.clone()));
+                return Ok((expr, env));
             }
 
             let first = x.get(0).unwrap();
@@ -103,14 +103,14 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                     "lambda" => {
                         let formals = x.get(1).unwrap().clone().must_list()?;
                         let body = x.get(2).unwrap();
-                        let env = env.clone();
+                        let env = env;
                         Ok((
                             Expression::Lambda {
                                 formals,
                                 body: Box::new(body.clone()),
                                 env: env.clone().env,
                             },
-                            env.clone(),
+                            env,
                         ))
                     }
                     "+" | "-" | "*" | "/" => {
@@ -159,17 +159,14 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                         mut env,
                                     } => {
                                         // Populate environment with formal parameters.
-                                        for (i, f) in formals.iter().enumerate().clone() {
+                                        for (i, f) in formals.iter().enumerate() {
                                             env.insert(
                                                 f.clone().must_string()?,
                                                 x.get(1 + i).unwrap().clone(),
                                             );
                                         }
                                         // Evaluate the body of the expression.
-                                        return evaluate(
-                                            *body.clone(),
-                                            Environment { env: env.clone() },
-                                        );
+                                        return evaluate(*body, Environment { env });
                                     }
                                     _ => Err("cannot call value"),
                                 }
