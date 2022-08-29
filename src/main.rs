@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::env;
 use std::io;
 use std::io::Write;
 
@@ -69,6 +70,7 @@ fn get_op(op: String) -> Result<Box<dyn Fn(f64, f64) -> f64>, &'static str> {
     }
 }
 
+/// Evaluate an expression in the context of an environment.
 fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environment), &'static str> {
     return match expr {
         Expression::Boolean(_) => Ok((expr, env)),
@@ -92,7 +94,6 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
 
             let first = x.get(0).unwrap();
             return match first {
-                Expression::Boolean(_) => Err("blah"),
                 Expression::String(y) => match y.as_str() {
                     "define" => {
                         let id = x.get(1).unwrap().clone().must_string()?;
@@ -115,31 +116,31 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                     }
                     "+" | "-" | "*" | "/" => {
                         let op = get_op(y.to_string())?;
-                        let lhs = x.get(1).unwrap();
-                        let rhs = x.get(2).unwrap();
+                        let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone()).unwrap();
+                        let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone()).unwrap();
                         let result = match (lhs, rhs) {
                             (Expression::Number(x), Expression::Number(y)) => {
-                                Expression::Number(op(*x, *y))
+                                Expression::Number(op(x, y))
                             }
                             (Expression::String(x), Expression::Number(y)) => {
-                                let lhs_from_env = match env.env.get(x) {
+                                let lhs_from_env = match env.env.get(&x) {
                                     Some(x) => x,
                                     None => return Err("nothing bound to variable"),
                                 };
                                 let lhs_from_env = lhs_from_env.clone().must_number()?;
-                                Expression::Number(op(lhs_from_env, *y))
+                                Expression::Number(op(lhs_from_env, y))
                             }
                             (Expression::Number(x), Expression::String(y)) => {
-                                let rhs_from_env = match env.env.get(y) {
+                                let rhs_from_env = match env.env.get(&y) {
                                     Some(y) => y,
                                     None => return Err("nothing bound to variable"),
                                 };
                                 let rhs_from_env = rhs_from_env.clone().must_number()?;
-                                Expression::Number(op(*x, rhs_from_env))
+                                Expression::Number(op(x, rhs_from_env))
                             }
                             (Expression::String(x), Expression::String(y)) => {
-                                let lhs_env = env.env.get(x).unwrap().clone().must_number()?;
-                                let rhs_env = env.env.get(y).unwrap().clone().must_number()?;
+                                let lhs_env = env.env.get(&x).unwrap().clone().must_number()?;
+                                let rhs_env = env.env.get(&y).unwrap().clone().must_number()?;
                                 Expression::Number(op(lhs_env, rhs_env))
                             }
                             _ => return Err("can only add numbers"),
@@ -174,9 +175,8 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                         }
                     }
                 },
-                Expression::Number(_) => Err("whoops"),
-                Expression::List(_) => Err("whoops"),
-                Expression::Lambda { .. } => Err("whoops"),
+                Expression::List(_) => evaluate(first.clone(), env),
+                _ => return Err("unimplemented"),
             };
         }
         Expression::Lambda { formals, body, env } => {
@@ -344,7 +344,56 @@ mod tests {
     }
 
     #[test]
+    fn complex_expression() {
+        let test_cases: Vec<TestCase> = vec![
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("+".to_string()),
+                    Expression::List(vec![
+                        Expression::String("+".to_string()),
+                        Expression::Number(2.0),
+                        Expression::Number(3.0),
+                    ]),
+                    Expression::Number(3.0),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Number(8.0),
+                result_env: Environment::new(),
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("+".to_string()),
+                    Expression::List(vec![
+                        Expression::String("-".to_string()),
+                        Expression::List(vec![
+                            Expression::String("*".to_string()),
+                            Expression::Number(2.0),
+                            Expression::Number(5.0),
+                        ]),
+                        Expression::List(vec![
+                            Expression::String("+".to_string()),
+                            Expression::Number(2.0),
+                            Expression::Number(3.0),
+                        ]),
+                    ]),
+                    Expression::Number(3.0),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Number(8.0),
+                result_env: Environment::new(),
+            },
+        ];
+
+        for case in test_cases.iter() {
+            let (result, result_env) = evaluate(case.expr.clone(), case.expr_env.clone()).unwrap();
+            assert_eq!(result, case.result);
+            assert_eq!(result_env, case.result_env);
+        }
+    }
+
+    #[test]
     fn expression_error() {
+        // TODO: Result should be optional as nothing is actually returned.
         let test_cases: Vec<TestCase> = vec![
             TestCase {
                 expr: Expression::List(vec![
