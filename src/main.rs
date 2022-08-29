@@ -60,7 +60,7 @@ impl Environment {
     }
 }
 
-fn get_op(op: String) -> Result<Box<dyn Fn(f64, f64) -> f64>, &'static str> {
+fn get_arithmetic_op(op: String) -> Result<Box<dyn Fn(f64, f64) -> f64>, &'static str> {
     match op.as_str() {
         "+" => Ok(Box::new(|x, y| x + y)),
         "-" => Ok(Box::new(|x, y| x - y)),
@@ -70,22 +70,32 @@ fn get_op(op: String) -> Result<Box<dyn Fn(f64, f64) -> f64>, &'static str> {
     }
 }
 
+fn get_conditional_op(op: String) -> Result<Box<dyn Fn(f64, f64) -> bool>, &'static str> {
+    match op.as_str() {
+        "=" => Ok(Box::new(|x, y| x == y)),
+        "<" => Ok(Box::new(|x, y| x < y)),
+        ">" => Ok(Box::new(|x, y| x > y)),
+        _ => Err("unknown operator"),
+    }
+}
+
 /// Evaluate an expression in the context of an environment.
 fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environment), &'static str> {
     return match expr {
+        // Boolean expressions evaluate to themselves.
         Expression::Boolean(_) => Ok((expr, env)),
+        // String expressions evaluate to string literals if they are double
+        // quoted, or otherwise to their binding in the environment.
         Expression::String(ref x) => {
-            // Actual strings are double quoted.
             if x.starts_with("\"") && x.ends_with("\"") {
                 return Ok((expr, env));
             }
-
-            // Not a string literal, try and find symbol in environment.
             match env.env.get(x) {
                 Some(y) => Ok((y.clone(), env)),
                 None => Ok((expr, env)),
             }
         }
+        // Numeric expressions evaluate to themselves.
         Expression::Number(_) => Ok((expr, env)),
         Expression::List(ref x) => {
             if x.len() == 0 {
@@ -114,8 +124,9 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                             env,
                         ))
                     }
+                    // Evaluate an arithmetic expression.
                     "+" | "-" | "*" | "/" => {
-                        let op = get_op(y.to_string())?;
+                        let op = get_arithmetic_op(y.to_string())?;
                         let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone()).unwrap();
                         let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone()).unwrap();
                         let result = match (lhs, rhs) {
@@ -147,11 +158,46 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                         };
                         return Ok((result, env));
                     }
-                    v => {
+                    // Evaluate a conditional expression.
+                    "=" | "<" | ">" => {
+                        let op = get_conditional_op(y.to_string())?;
+                        let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone()).unwrap();
+                        let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone()).unwrap();
+                        let result = match (lhs, rhs) {
+                            (Expression::Number(x), Expression::Number(y)) => {
+                                Expression::Boolean(op(x, y))
+                            }
+                            (Expression::String(x), Expression::Number(y)) => {
+                                let lhs_from_env = match env.env.get(&x) {
+                                    Some(x) => x,
+                                    None => return Err("nothing bound to variable"),
+                                };
+                                let lhs_from_env = lhs_from_env.clone().must_number()?;
+                                Expression::Boolean(op(lhs_from_env, y))
+                            }
+                            (Expression::Number(x), Expression::String(y)) => {
+                                let rhs_from_env = match env.env.get(&y) {
+                                    Some(y) => y,
+                                    None => return Err("nothing bound to variable"),
+                                };
+                                let rhs_from_env = rhs_from_env.clone().must_number()?;
+                                Expression::Boolean(op(x, rhs_from_env))
+                            }
+                            (Expression::String(x), Expression::String(y)) => {
+                                let lhs_env = env.env.get(&x).unwrap().clone().must_number()?;
+                                let rhs_env = env.env.get(&y).unwrap().clone().must_number()?;
+                                Expression::Boolean(op(lhs_env, rhs_env))
+                            }
+                            _ => return Err("can only add numbers"),
+                        };
+                        return Ok((result, env));
+                    }
+                    // Evaluate a user defined procedure from the environment.
+                    symbol => {
                         // Look up the symbol in the current environment.
-                        let v_env = env.env.get(v);
+                        let v_env = env.env.get(symbol);
                         match v_env {
-                            None => return Err("whoops failed to find in environment"),
+                            None => return Err("symbol not found"),
                             Some(y) => {
                                 match y.clone() {
                                     Expression::Lambda {
@@ -169,7 +215,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                         // Evaluate the body of the expression.
                                         return evaluate(*body, Environment { env });
                                     }
-                                    _ => Err("cannot call value"),
+                                    _ => Err("symbol is not a procedure"),
                                 }
                             }
                         }
@@ -246,6 +292,7 @@ mod tests {
     #[test]
     fn basic_expression() {
         let test_cases: Vec<TestCase> = vec![
+            // Arithmetic expressions.
             TestCase {
                 expr: Expression::List(vec![
                     Expression::String("+".to_string()),
@@ -331,6 +378,127 @@ mod tests {
                     env: HashMap::from([
                         ("x".to_string(), Expression::Number(2.0)),
                         ("y".to_string(), Expression::Number(3.0)),
+                    ]),
+                },
+            },
+            // Conditional expressions.
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("=".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("y".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Number(3.0)),
+                        ("y".to_string(), Expression::Number(3.0)),
+                    ]),
+                },
+                result: Expression::Boolean(true),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Number(3.0)),
+                        ("y".to_string(), Expression::Number(3.0)),
+                    ]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("=".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("y".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Number(1.0)),
+                        ("y".to_string(), Expression::Number(3.0)),
+                    ]),
+                },
+                result: Expression::Boolean(false),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Number(1.0)),
+                        ("y".to_string(), Expression::Number(3.0)),
+                    ]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("<".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("y".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Number(1.0)),
+                        ("y".to_string(), Expression::Number(3.0)),
+                    ]),
+                },
+                result: Expression::Boolean(true),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Number(1.0)),
+                        ("y".to_string(), Expression::Number(3.0)),
+                    ]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("<".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("y".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Number(3.0)),
+                        ("y".to_string(), Expression::Number(1.0)),
+                    ]),
+                },
+                result: Expression::Boolean(false),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Number(3.0)),
+                        ("y".to_string(), Expression::Number(1.0)),
+                    ]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String(">".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("y".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Number(1.0)),
+                        ("y".to_string(), Expression::Number(3.0)),
+                    ]),
+                },
+                result: Expression::Boolean(false),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Number(1.0)),
+                        ("y".to_string(), Expression::Number(3.0)),
+                    ]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String(">".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("y".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Number(3.0)),
+                        ("y".to_string(), Expression::Number(1.0)),
+                    ]),
+                },
+                result: Expression::Boolean(true),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Number(3.0)),
+                        ("y".to_string(), Expression::Number(1.0)),
                     ]),
                 },
             },
