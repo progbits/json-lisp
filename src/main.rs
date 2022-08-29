@@ -19,6 +19,13 @@ enum Expression {
 }
 
 impl Expression {
+    fn must_bool(self) -> Result<bool, &'static str> {
+        return match self {
+            Expression::Boolean(x) => Ok(x),
+            _ => Err("not a boolean"),
+        };
+    }
+
     fn must_string(self) -> Result<String, &'static str> {
         match self {
             Expression::String(s) => return Ok(s),
@@ -75,6 +82,15 @@ fn get_conditional_op(op: String) -> Result<Box<dyn Fn(f64, f64) -> bool>, &'sta
         "=" => Ok(Box::new(|x, y| x == y)),
         "<" => Ok(Box::new(|x, y| x < y)),
         ">" => Ok(Box::new(|x, y| x > y)),
+        _ => Err("unknown operator"),
+    }
+}
+
+// Note, only returns binary logical operators.
+fn get_logical_op(op: String) -> Result<Box<dyn Fn(bool, bool) -> bool>, &'static str> {
+    match op.as_str() {
+        "and" => Ok(Box::new(|x, y| x && y)),
+        "or" => Ok(Box::new(|x, y| x || y)),
         _ => Err("unknown operator"),
     }
 }
@@ -192,6 +208,53 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                         };
                         return Ok((result, env));
                     }
+                    // Evaluate a logical operator.
+                    "and" | "or" | "not" => {
+                        // Handle unary `not` operator.
+                        if y == "not" {
+                            let (lhs, _) =
+                                evaluate(x.get(1).unwrap().clone(), env.clone()).unwrap();
+                            return match lhs {
+                                Expression::Boolean(b) => {
+                                    Ok((Expression::Boolean(!b), env.clone()))
+                                }
+                                _ => Err("cannot apply logical operator to non-boolean expression"),
+                            };
+                        }
+                        // Handle binary logical operators.
+                        let op = get_logical_op(y.to_string())?;
+                        let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone()).unwrap();
+                        let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone()).unwrap();
+                        let result = match (lhs, rhs) {
+                            (Expression::Boolean(x), Expression::Boolean(y)) => {
+                                Expression::Boolean(op(x, y))
+                            }
+                            (Expression::String(x), Expression::Boolean(y)) => {
+                                let lhs_from_env = match env.env.get(&x) {
+                                    Some(x) => x,
+                                    None => return Err("nothing bound to variable"),
+                                };
+                                let lhs_from_env = lhs_from_env.clone().must_bool()?;
+                                Expression::Boolean(op(lhs_from_env, y))
+                            }
+                            (Expression::Boolean(x), Expression::String(y)) => {
+                                let rhs_from_env = match env.env.get(&y) {
+                                    Some(y) => y,
+                                    None => return Err("nothing bound to variable"),
+                                };
+                                let rhs_from_env = rhs_from_env.clone().must_bool()?;
+                                Expression::Boolean(op(x, rhs_from_env))
+                            }
+                            (Expression::String(x), Expression::String(y)) => {
+                                let lhs_env = env.env.get(&x).unwrap().clone().must_bool()?;
+                                let rhs_env = env.env.get(&y).unwrap().clone().must_bool()?;
+                                Expression::Boolean(op(lhs_env, rhs_env))
+                            }
+                            _ => return Err("can only add numbers"),
+                        };
+                        return Ok((result, env));
+                    }
+
                     // Evaluate a user defined procedure from the environment.
                     symbol => {
                         // Look up the symbol in the current environment.
@@ -499,6 +562,154 @@ mod tests {
                     env: HashMap::from([
                         ("x".to_string(), Expression::Number(3.0)),
                         ("y".to_string(), Expression::Number(1.0)),
+                    ]),
+                },
+            },
+            // Logical expressions.
+            // TODO: Add test cases for literal operands.
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("not".to_string()),
+                    Expression::String("x".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([("x".to_string(), Expression::Boolean(true))]),
+                },
+                result: Expression::Boolean(false),
+                result_env: Environment {
+                    env: HashMap::from([("x".to_string(), Expression::Boolean(true))]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("not".to_string()),
+                    Expression::String("x".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([("x".to_string(), Expression::Boolean(false))]),
+                },
+                result: Expression::Boolean(true),
+                result_env: Environment {
+                    env: HashMap::from([("x".to_string(), Expression::Boolean(false))]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("and".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("y".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(true)),
+                        ("y".to_string(), Expression::Boolean(false)),
+                    ]),
+                },
+                result: Expression::Boolean(false),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(true)),
+                        ("y".to_string(), Expression::Boolean(false)),
+                    ]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("and".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("y".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(false)),
+                        ("y".to_string(), Expression::Boolean(true)),
+                    ]),
+                },
+                result: Expression::Boolean(false),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(false)),
+                        ("y".to_string(), Expression::Boolean(true)),
+                    ]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("and".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("y".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(true)),
+                        ("y".to_string(), Expression::Boolean(true)),
+                    ]),
+                },
+                result: Expression::Boolean(true),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(true)),
+                        ("y".to_string(), Expression::Boolean(true)),
+                    ]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("or".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("y".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(true)),
+                        ("y".to_string(), Expression::Boolean(false)),
+                    ]),
+                },
+                result: Expression::Boolean(true),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(true)),
+                        ("y".to_string(), Expression::Boolean(false)),
+                    ]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("or".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("y".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(false)),
+                        ("y".to_string(), Expression::Boolean(true)),
+                    ]),
+                },
+                result: Expression::Boolean(true),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(false)),
+                        ("y".to_string(), Expression::Boolean(true)),
+                    ]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("or".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("y".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(true)),
+                        ("y".to_string(), Expression::Boolean(true)),
+                    ]),
+                },
+                result: Expression::Boolean(true),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(true)),
+                        ("y".to_string(), Expression::Boolean(true)),
                     ]),
                 },
             },
