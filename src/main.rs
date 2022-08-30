@@ -108,7 +108,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
             }
             match env.env.get(x) {
                 Some(y) => Ok((y.clone(), env)),
-                None => Ok((expr, env)),
+                None => Err("symbol not found in environment"),
             }
         }
         // Numeric expressions evaluate to themselves.
@@ -123,7 +123,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                 Expression::String(y) => match y.as_str() {
                     "define" => {
                         let id = x.get(1).unwrap().clone().must_string()?;
-                        let expr = evaluate(x.get(2).unwrap().clone(), env.clone()).unwrap();
+                        let expr = evaluate(x.get(2).unwrap().clone(), env.clone())?;
                         let env = env.new_with(id, expr.0);
                         Ok((Expression::Boolean(true), env))
                     }
@@ -143,8 +143,8 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                     // Evaluate an arithmetic expression.
                     "+" | "-" | "*" | "/" => {
                         let op = get_arithmetic_op(y.to_string())?;
-                        let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone()).unwrap();
-                        let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone()).unwrap();
+                        let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone())?;
+                        let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone())?;
                         let result = match (lhs, rhs) {
                             (Expression::Number(x), Expression::Number(y)) => {
                                 Expression::Number(op(x, y))
@@ -177,8 +177,8 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                     // Evaluate a conditional expression.
                     "=" | "<" | ">" => {
                         let op = get_conditional_op(y.to_string())?;
-                        let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone()).unwrap();
-                        let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone()).unwrap();
+                        let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone())?;
+                        let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone())?;
                         let result = match (lhs, rhs) {
                             (Expression::Number(x), Expression::Number(y)) => {
                                 Expression::Boolean(op(x, y))
@@ -212,8 +212,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                     "and" | "or" | "not" => {
                         // Handle unary `not` operator.
                         if y == "not" {
-                            let (lhs, _) =
-                                evaluate(x.get(1).unwrap().clone(), env.clone()).unwrap();
+                            let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone())?;
                             return match lhs {
                                 Expression::Boolean(b) => {
                                     Ok((Expression::Boolean(!b), env.clone()))
@@ -223,8 +222,8 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                         }
                         // Handle binary logical operators.
                         let op = get_logical_op(y.to_string())?;
-                        let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone()).unwrap();
-                        let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone()).unwrap();
+                        let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone())?;
+                        let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone())?;
                         let result = match (lhs, rhs) {
                             (Expression::Boolean(x), Expression::Boolean(y)) => {
                                 Expression::Boolean(op(x, y))
@@ -256,7 +255,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                     }
                     // Evaluate a conditional `if` expression.
                     "if" => {
-                        let (test, _) = evaluate(x.get(1).unwrap().clone(), env.clone()).unwrap();
+                        let (test, _) = evaluate(x.get(1).unwrap().clone(), env.clone())?;
                         match test.must_bool() {
                             Ok(b) => {
                                 if b {
@@ -279,17 +278,19 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                     Expression::Lambda {
                                         formals,
                                         body,
-                                        mut env,
+                                        env: mut l_env,
                                     } => {
-                                        // Populate environment with formal parameters.
+                                        // Populate environment with formal parameters by
+                                        // evaluating each argument.
                                         for (i, f) in formals.iter().enumerate() {
-                                            env.insert(
-                                                f.clone().must_string()?,
+                                            let (eval, _) = evaluate(
                                                 x.get(1 + i).unwrap().clone(),
-                                            );
+                                                env.clone(),
+                                            )?;
+                                            l_env.insert(f.clone().must_string()?, eval);
                                         }
                                         // Evaluate the body of the expression.
-                                        return evaluate(*body, Environment { env });
+                                        return evaluate(*body, Environment { env: l_env });
                                     }
                                     _ => Err("symbol is not a procedure"),
                                 }
@@ -736,11 +737,17 @@ mod tests {
                     Expression::String("bar".to_string()),
                 ]),
                 expr_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Boolean(true))]),
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(true)),
+                        ("foo".to_string(), Expression::Number(1.0)),
+                    ]),
                 },
-                result: Expression::String("foo".to_string()),
+                result: Expression::Number(1.0),
                 result_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Boolean(true))]),
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(true)),
+                        ("foo".to_string(), Expression::Number(1.0)),
+                    ]),
                 },
             },
             TestCase {
@@ -861,7 +868,14 @@ mod tests {
                 result: Expression::Number(3.14),
                 result_env: Environment::new(),
             },
-            // Can't evaluate non-lambda names.
+            // Symbol not found in environment.
+            TestCase {
+                expr: Expression::String("x".to_string()),
+                expr_env: Environment::new(),
+                result: Expression::Number(3.14),
+                result_env: Environment::new(),
+            },
+            // Can't evaluate symbols not of type lambda.
             TestCase {
                 expr: Expression::List(vec![Expression::String("x".to_string())]),
                 expr_env: Environment {
@@ -971,6 +985,85 @@ mod tests {
                 result: Expression::Number(4.0),
                 result_env: Environment {
                     env: HashMap::from([("x".to_string(), Expression::Number(2.0))]),
+                },
+            },
+            // Lambda evaluation, expression argument.
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("square".to_string()),
+                    Expression::List(vec![
+                        Expression::String("+".to_string()),
+                        Expression::Number(3.0),
+                        Expression::Number(2.0),
+                    ]),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([(
+                        "square".to_string(),
+                        Expression::Lambda {
+                            formals: vec![Expression::String("x".to_string())],
+                            body: Box::new(Expression::List(vec![
+                                Expression::String("*".to_string()),
+                                Expression::String("x".to_string()),
+                                Expression::String("x".to_string()),
+                            ])),
+                            env: HashMap::new(),
+                        },
+                    )]),
+                },
+                result: Expression::Number(25.0),
+                result_env: Environment {
+                    env: HashMap::from([("x".to_string(), Expression::Number(5.0))]),
+                },
+            },
+            // Lambda evaluation, argument from environment.
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("square".to_string()),
+                    Expression::String("x".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        (
+                            "square".to_string(),
+                            Expression::Lambda {
+                                formals: vec![Expression::String("x".to_string())],
+                                body: Box::new(Expression::List(vec![
+                                    Expression::String("*".to_string()),
+                                    Expression::String("x".to_string()),
+                                    Expression::String("x".to_string()),
+                                ])),
+                                env: HashMap::new(),
+                            },
+                        ),
+                        ("x".to_string(), Expression::Number(7.0)),
+                    ]),
+                },
+                result: Expression::Number(49.0),
+                result_env: Environment {
+                    env: HashMap::from([("x".to_string(), Expression::Number(7.0))]),
+                },
+            },
+            // Lambda evaluation, no formals.
+            TestCase {
+                expr: Expression::List(vec![Expression::String("square".to_string())]),
+                expr_env: Environment {
+                    env: HashMap::from([(
+                        "square".to_string(),
+                        Expression::Lambda {
+                            formals: vec![],
+                            body: Box::new(Expression::List(vec![
+                                Expression::String("*".to_string()),
+                                Expression::String("x".to_string()),
+                                Expression::String("x".to_string()),
+                            ])),
+                            env: HashMap::from([("x".to_string(), Expression::Number(7.0))]),
+                        },
+                    )]),
+                },
+                result: Expression::Number(49.0),
+                result_env: Environment {
+                    env: HashMap::from([("x".to_string(), Expression::Number(7.0))]),
                 },
             },
         ];
