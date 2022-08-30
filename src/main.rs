@@ -254,7 +254,20 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                         };
                         return Ok((result, env));
                     }
-
+                    // Evaluate a conditional `if` expression.
+                    "if" => {
+                        let (test, _) = evaluate(x.get(1).unwrap().clone(), env.clone()).unwrap();
+                        match test.must_bool() {
+                            Ok(b) => {
+                                if b {
+                                    evaluate(x.get(2).unwrap().clone(), env)
+                                } else {
+                                    evaluate(x.get(3).unwrap().clone(), env)
+                                }
+                            }
+                            Err(_) => Err("test must be a boolean expression"),
+                        }
+                    }
                     // Evaluate a user defined procedure from the environment.
                     symbol => {
                         // Look up the symbol in the current environment.
@@ -445,6 +458,7 @@ mod tests {
                 },
             },
             // Conditional expressions.
+            // TODO: Add test cases for literal operands.
             TestCase {
                 expr: Expression::List(vec![
                     Expression::String("=".to_string()),
@@ -710,6 +724,49 @@ mod tests {
                     env: HashMap::from([
                         ("x".to_string(), Expression::Boolean(true)),
                         ("y".to_string(), Expression::Boolean(true)),
+                    ]),
+                },
+            },
+            // `if` expressions.
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("if".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("foo".to_string()),
+                    Expression::String("bar".to_string()),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([("x".to_string(), Expression::Boolean(true))]),
+                },
+                result: Expression::String("foo".to_string()),
+                result_env: Environment {
+                    env: HashMap::from([("x".to_string(), Expression::Boolean(true))]),
+                },
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("if".to_string()),
+                    Expression::String("x".to_string()),
+                    Expression::String("foo".to_string()),
+                    Expression::List(vec![
+                        Expression::String("+".to_string()),
+                        Expression::String("y".to_string()),
+                        Expression::String("z".to_string()),
+                    ]),
+                ]),
+                expr_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(false)),
+                        ("y".to_string(), Expression::Number(2.0)),
+                        ("z".to_string(), Expression::Number(5.0)),
+                    ]),
+                },
+                result: Expression::Number(7.0),
+                result_env: Environment {
+                    env: HashMap::from([
+                        ("x".to_string(), Expression::Boolean(false)),
+                        ("y".to_string(), Expression::Number(2.0)),
+                        ("z".to_string(), Expression::Number(5.0)),
                     ]),
                 },
             },
