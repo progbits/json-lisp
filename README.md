@@ -50,6 +50,19 @@ Boolean(true)
 Number(4.0)
 ```
 
+Procedures are values and can be passed around like normal variables:
+
+```shell
+> ["define", "p", ["lambda", ["x"], ["*", "x", "x"]]]
+Boolean(true)
+> ["define", "g", ["lambda", ["p", "x"], ["p", "x"]]]
+Boolean(true)
+> ["g", 25]
+missing argument
+> ["g", "p", 25]
+Number(625.0)
+```
+
 ### Putting It All Together
 
 ```shell
