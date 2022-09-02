@@ -6,7 +6,7 @@ A Lisp whose syntax is JSON lists.
 
 ### Defining Variables
 
-Variables are defined using the `define` keyword:
+Top level variables bindings are defined using the `define` keyword:
 
 ```shell
 > ["define", "x", "3"]
