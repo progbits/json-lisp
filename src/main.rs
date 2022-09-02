@@ -298,8 +298,36 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                         }
                     }
                 },
-                Expression::List(_) => evaluate(first.clone(), env),
-                _ => return Err("unimplemented"),
+                Expression::List(_) => {
+                    let (expr, env) = evaluate(first.clone(), env).unwrap();
+                    let mut xp = x.clone();
+                    xp[0] = expr;
+                    evaluate(Expression::List(xp), env)
+                }
+                Expression::Lambda {
+                    formals,
+                    body,
+                    env: eenv,
+                } => {
+                    let mut l_env = eenv.clone();
+                    // Populate environment with formal parameters by
+                    // evaluating each argument.
+                    for (i, f) in formals.iter().enumerate() {
+                        let arg = match x.get(1 + i) {
+                            Some(a) => a.clone(),
+                            None => return Err("not enough arguments"),
+                        };
+                        let (eval, _) = evaluate(arg, env.clone())?;
+                        l_env.insert(f.clone().must_string()?, eval);
+                    }
+                    // Evaluate the body of the expression.
+                    let bdy = &**body;
+                    evaluate(bdy.clone(), Environment { env: l_env })
+                }
+                _ => {
+                    println!("this is unimplemented: {:?}", x);
+                    return Err("unimplemented");
+                }
             };
         }
         Expression::Lambda { formals, body, env } => {
@@ -927,9 +955,31 @@ mod tests {
         }
     }
 
+    // [["lambda", ["x"], ["*", "x", "x"]], 5]
+
     #[test]
     fn basic_procedures() {
         let test_cases: Vec<TestCase> = vec![
+            // Anonymous lambda as an expression.
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::List(vec![
+                        Expression::String("lambda".to_string()),
+                        Expression::List(vec![Expression::String("x".to_string())]),
+                        Expression::List(vec![
+                            Expression::String("*".to_string()),
+                            Expression::String("x".to_string()),
+                            Expression::String("x".to_string()),
+                        ]),
+                    ]),
+                    Expression::Number(25.0),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Number(625.0),
+                result_env: Environment {
+                    env: HashMap::from([("x".to_string(), Expression::Number(25.0))]),
+                },
+            },
             // Lambda definition.
             TestCase {
                 expr: Expression::List(vec![

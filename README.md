@@ -40,8 +40,17 @@ Number(-1.0)
 
 ### Defining Procedures
 
-Procedures are defined using the `lambda` keyword. To define a procedure called
-`square` that takes a single argument `x` and returns the square of that value:
+Procedures are defined using the `lambda` keyword.
+
+The `lambda` keyword can be used to define anonymous procedures:
+
+```shell
+> [["lambda", ["x"], ["*", "x", "x"]], 5]
+Number(25.0)
+```
+
+The `define` keyword can be used to bind `lambda` expressions to symbols. To define a procedure called `square` that
+takes a single argument `x` and returns the square of that value:
 
 ```shell
 > ["define", "square", ["lambda", ["x"], ["*", "x", "x"]]]
