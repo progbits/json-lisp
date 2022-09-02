@@ -955,8 +955,6 @@ mod tests {
         }
     }
 
-    // [["lambda", ["x"], ["*", "x", "x"]], 5]
-
     #[test]
     fn basic_procedures() {
         let test_cases: Vec<TestCase> = vec![

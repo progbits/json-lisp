@@ -1,4 +1,4 @@
-t# json-lisp
+# json-lisp
 
 A Scheme-like Lisp whose syntax is JSON lists.
 
