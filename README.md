@@ -1,6 +1,6 @@
-# json-lisp
+t# json-lisp
 
-A Lisp whose syntax is JSON lists.
+A Scheme-like Lisp whose syntax is JSON lists.
 
 ## Getting Started
 
