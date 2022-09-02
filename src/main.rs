@@ -49,21 +49,17 @@ impl Expression {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct Environment {
-    env: HashMap<String, Expression>,
-}
+struct Environment(HashMap<String, Expression>);
 
 impl Environment {
     fn new() -> Environment {
-        Environment {
-            env: HashMap::new(),
-        }
+        Environment(HashMap::new())
     }
 
     fn new_with(self, k: String, v: Expression) -> Self {
-        let mut env = self.env;
+        let mut env = self.0;
         env.insert(k, v);
-        return Environment { env };
+        return Environment(env);
     }
 }
 
@@ -106,7 +102,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
             if x.starts_with("\"") && x.ends_with("\"") {
                 return Ok((expr, env));
             }
-            match env.env.get(x) {
+            match env.0.get(x) {
                 Some(y) => Ok((y.clone(), env)),
                 None => Err("symbol not found in environment"),
             }
@@ -135,7 +131,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                             Expression::Lambda {
                                 formals,
                                 body: Box::new(body.clone()),
-                                env: env.clone().env,
+                                env: env.clone().0,
                             },
                             env,
                         ))
@@ -150,7 +146,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                 Expression::Number(op(x, y))
                             }
                             (Expression::String(x), Expression::Number(y)) => {
-                                let lhs_from_env = match env.env.get(&x) {
+                                let lhs_from_env = match env.0.get(&x) {
                                     Some(x) => x,
                                     None => return Err("nothing bound to variable"),
                                 };
@@ -158,7 +154,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                 Expression::Number(op(lhs_from_env, y))
                             }
                             (Expression::Number(x), Expression::String(y)) => {
-                                let rhs_from_env = match env.env.get(&y) {
+                                let rhs_from_env = match env.0.get(&y) {
                                     Some(y) => y,
                                     None => return Err("nothing bound to variable"),
                                 };
@@ -166,8 +162,8 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                 Expression::Number(op(x, rhs_from_env))
                             }
                             (Expression::String(x), Expression::String(y)) => {
-                                let lhs_env = env.env.get(&x).unwrap().clone().must_number()?;
-                                let rhs_env = env.env.get(&y).unwrap().clone().must_number()?;
+                                let lhs_env = env.0.get(&x).unwrap().clone().must_number()?;
+                                let rhs_env = env.0.get(&y).unwrap().clone().must_number()?;
                                 Expression::Number(op(lhs_env, rhs_env))
                             }
                             _ => return Err("can only add numbers"),
@@ -184,7 +180,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                 Expression::Boolean(op(x, y))
                             }
                             (Expression::String(x), Expression::Number(y)) => {
-                                let lhs_from_env = match env.env.get(&x) {
+                                let lhs_from_env = match env.0.get(&x) {
                                     Some(x) => x,
                                     None => return Err("nothing bound to variable"),
                                 };
@@ -192,7 +188,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                 Expression::Boolean(op(lhs_from_env, y))
                             }
                             (Expression::Number(x), Expression::String(y)) => {
-                                let rhs_from_env = match env.env.get(&y) {
+                                let rhs_from_env = match env.0.get(&y) {
                                     Some(y) => y,
                                     None => return Err("nothing bound to variable"),
                                 };
@@ -200,8 +196,8 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                 Expression::Boolean(op(x, rhs_from_env))
                             }
                             (Expression::String(x), Expression::String(y)) => {
-                                let lhs_env = env.env.get(&x).unwrap().clone().must_number()?;
-                                let rhs_env = env.env.get(&y).unwrap().clone().must_number()?;
+                                let lhs_env = env.0.get(&x).unwrap().clone().must_number()?;
+                                let rhs_env = env.0.get(&y).unwrap().clone().must_number()?;
                                 Expression::Boolean(op(lhs_env, rhs_env))
                             }
                             _ => return Err("can only add numbers"),
@@ -229,7 +225,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                 Expression::Boolean(op(x, y))
                             }
                             (Expression::String(x), Expression::Boolean(y)) => {
-                                let lhs_from_env = match env.env.get(&x) {
+                                let lhs_from_env = match env.0.get(&x) {
                                     Some(x) => x,
                                     None => return Err("nothing bound to variable"),
                                 };
@@ -237,7 +233,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                 Expression::Boolean(op(lhs_from_env, y))
                             }
                             (Expression::Boolean(x), Expression::String(y)) => {
-                                let rhs_from_env = match env.env.get(&y) {
+                                let rhs_from_env = match env.0.get(&y) {
                                     Some(y) => y,
                                     None => return Err("nothing bound to variable"),
                                 };
@@ -245,8 +241,8 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                 Expression::Boolean(op(x, rhs_from_env))
                             }
                             (Expression::String(x), Expression::String(y)) => {
-                                let lhs_env = env.env.get(&x).unwrap().clone().must_bool()?;
-                                let rhs_env = env.env.get(&y).unwrap().clone().must_bool()?;
+                                let lhs_env = env.0.get(&x).unwrap().clone().must_bool()?;
+                                let rhs_env = env.0.get(&y).unwrap().clone().must_bool()?;
                                 Expression::Boolean(op(lhs_env, rhs_env))
                             }
                             _ => return Err("can only add numbers"),
@@ -270,7 +266,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                     // Evaluate a user defined procedure from the environment.
                     symbol => {
                         // Look up the symbol in the current environment.
-                        let v_env = env.env.get(symbol);
+                        let v_env = env.0.get(symbol);
                         match v_env {
                             None => return Err("symbol not found"),
                             Some(y) => {
@@ -290,7 +286,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                             l_env.insert(f.clone().must_string()?, eval);
                                         }
                                         // Evaluate the body of the expression.
-                                        return evaluate(*body, Environment { env: l_env });
+                                        return evaluate(*body, Environment(l_env));
                                     }
                                     _ => Err("symbol is not a procedure"),
                                 }
@@ -322,7 +318,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                     }
                     // Evaluate the body of the expression.
                     let bdy = &**body;
-                    evaluate(bdy.clone(), Environment { env: l_env })
+                    evaluate(bdy.clone(), Environment(l_env))
                 }
                 _ => {
                     println!("this is unimplemented: {:?}", x);
@@ -337,9 +333,7 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
 }
 
 fn main() {
-    let mut env = Environment {
-        env: HashMap::<String, Expression>::new(),
-    };
+    let mut env = Environment::new();
 
     loop {
         print!("> ");
@@ -383,15 +377,13 @@ mod tests {
 
     #[test]
     fn empty_expression() {
-        let env = Environment {
-            env: HashMap::new(),
-        };
+        let env = Environment::new();
         let expr = Expression::List(vec![]);
 
         let (result, new_env) = evaluate(expr, env).unwrap();
 
         assert_eq!(result, Expression::List(vec![]));
-        assert!(new_env.env.is_empty())
+        assert!(new_env.0.is_empty())
     }
 
     #[test]
@@ -444,13 +436,12 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::Number(2.0),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Number(3.0))]),
-                },
+                expr_env: Environment(HashMap::from([("x".to_string(), Expression::Number(3.0))])),
                 result: Expression::Number(5.0),
-                result_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Number(3.0))]),
-                },
+                result_env: Environment(HashMap::from([(
+                    "x".to_string(),
+                    Expression::Number(3.0),
+                )])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -458,13 +449,12 @@ mod tests {
                     Expression::Number(2.0),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([("y".to_string(), Expression::Number(3.0))]),
-                },
+                expr_env: Environment(HashMap::from([("y".to_string(), Expression::Number(3.0))])),
                 result: Expression::Number(5.0),
-                result_env: Environment {
-                    env: HashMap::from([("y".to_string(), Expression::Number(3.0))]),
-                },
+                result_env: Environment(HashMap::from([(
+                    "y".to_string(),
+                    Expression::Number(3.0),
+                )])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -472,19 +462,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(2.0)),
-                        ("y".to_string(), Expression::Number(3.0)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(2.0)),
+                    ("y".to_string(), Expression::Number(3.0)),
+                ])),
                 result: Expression::Number(5.0),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(2.0)),
-                        ("y".to_string(), Expression::Number(3.0)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(2.0)),
+                    ("y".to_string(), Expression::Number(3.0)),
+                ])),
             },
             // Conditional expressions.
             // TODO: Add test cases for literal operands.
@@ -494,19 +480,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(3.0)),
-                        ("y".to_string(), Expression::Number(3.0)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(3.0)),
+                    ("y".to_string(), Expression::Number(3.0)),
+                ])),
                 result: Expression::Boolean(true),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(3.0)),
-                        ("y".to_string(), Expression::Number(3.0)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(3.0)),
+                    ("y".to_string(), Expression::Number(3.0)),
+                ])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -514,19 +496,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(1.0)),
-                        ("y".to_string(), Expression::Number(3.0)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(1.0)),
+                    ("y".to_string(), Expression::Number(3.0)),
+                ])),
                 result: Expression::Boolean(false),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(1.0)),
-                        ("y".to_string(), Expression::Number(3.0)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(1.0)),
+                    ("y".to_string(), Expression::Number(3.0)),
+                ])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -534,19 +512,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(1.0)),
-                        ("y".to_string(), Expression::Number(3.0)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(1.0)),
+                    ("y".to_string(), Expression::Number(3.0)),
+                ])),
                 result: Expression::Boolean(true),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(1.0)),
-                        ("y".to_string(), Expression::Number(3.0)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(1.0)),
+                    ("y".to_string(), Expression::Number(3.0)),
+                ])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -554,19 +528,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(3.0)),
-                        ("y".to_string(), Expression::Number(1.0)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(3.0)),
+                    ("y".to_string(), Expression::Number(1.0)),
+                ])),
                 result: Expression::Boolean(false),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(3.0)),
-                        ("y".to_string(), Expression::Number(1.0)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(3.0)),
+                    ("y".to_string(), Expression::Number(1.0)),
+                ])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -574,19 +544,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(1.0)),
-                        ("y".to_string(), Expression::Number(3.0)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(1.0)),
+                    ("y".to_string(), Expression::Number(3.0)),
+                ])),
                 result: Expression::Boolean(false),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(1.0)),
-                        ("y".to_string(), Expression::Number(3.0)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(1.0)),
+                    ("y".to_string(), Expression::Number(3.0)),
+                ])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -594,19 +560,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(3.0)),
-                        ("y".to_string(), Expression::Number(1.0)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(3.0)),
+                    ("y".to_string(), Expression::Number(1.0)),
+                ])),
                 result: Expression::Boolean(true),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Number(3.0)),
-                        ("y".to_string(), Expression::Number(1.0)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Number(3.0)),
+                    ("y".to_string(), Expression::Number(1.0)),
+                ])),
             },
             // Logical expressions.
             // TODO: Add test cases for literal operands.
@@ -615,26 +577,30 @@ mod tests {
                     Expression::String("not".to_string()),
                     Expression::String("x".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Boolean(true))]),
-                },
+                expr_env: Environment(HashMap::from([(
+                    "x".to_string(),
+                    Expression::Boolean(true),
+                )])),
                 result: Expression::Boolean(false),
-                result_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Boolean(true))]),
-                },
+                result_env: Environment(HashMap::from([(
+                    "x".to_string(),
+                    Expression::Boolean(true),
+                )])),
             },
             TestCase {
                 expr: Expression::List(vec![
                     Expression::String("not".to_string()),
                     Expression::String("x".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Boolean(false))]),
-                },
+                expr_env: Environment(HashMap::from([(
+                    "x".to_string(),
+                    Expression::Boolean(false),
+                )])),
                 result: Expression::Boolean(true),
-                result_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Boolean(false))]),
-                },
+                result_env: Environment(HashMap::from([(
+                    "x".to_string(),
+                    Expression::Boolean(false),
+                )])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -642,19 +608,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(true)),
-                        ("y".to_string(), Expression::Boolean(false)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(true)),
+                    ("y".to_string(), Expression::Boolean(false)),
+                ])),
                 result: Expression::Boolean(false),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(true)),
-                        ("y".to_string(), Expression::Boolean(false)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(true)),
+                    ("y".to_string(), Expression::Boolean(false)),
+                ])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -662,19 +624,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(false)),
-                        ("y".to_string(), Expression::Boolean(true)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(false)),
+                    ("y".to_string(), Expression::Boolean(true)),
+                ])),
                 result: Expression::Boolean(false),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(false)),
-                        ("y".to_string(), Expression::Boolean(true)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(false)),
+                    ("y".to_string(), Expression::Boolean(true)),
+                ])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -682,19 +640,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(true)),
-                        ("y".to_string(), Expression::Boolean(true)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(true)),
+                    ("y".to_string(), Expression::Boolean(true)),
+                ])),
                 result: Expression::Boolean(true),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(true)),
-                        ("y".to_string(), Expression::Boolean(true)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(true)),
+                    ("y".to_string(), Expression::Boolean(true)),
+                ])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -702,19 +656,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(true)),
-                        ("y".to_string(), Expression::Boolean(false)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(true)),
+                    ("y".to_string(), Expression::Boolean(false)),
+                ])),
                 result: Expression::Boolean(true),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(true)),
-                        ("y".to_string(), Expression::Boolean(false)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(true)),
+                    ("y".to_string(), Expression::Boolean(false)),
+                ])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -722,19 +672,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(false)),
-                        ("y".to_string(), Expression::Boolean(true)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(false)),
+                    ("y".to_string(), Expression::Boolean(true)),
+                ])),
                 result: Expression::Boolean(true),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(false)),
-                        ("y".to_string(), Expression::Boolean(true)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(false)),
+                    ("y".to_string(), Expression::Boolean(true)),
+                ])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -742,19 +688,15 @@ mod tests {
                     Expression::String("x".to_string()),
                     Expression::String("y".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(true)),
-                        ("y".to_string(), Expression::Boolean(true)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(true)),
+                    ("y".to_string(), Expression::Boolean(true)),
+                ])),
                 result: Expression::Boolean(true),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(true)),
-                        ("y".to_string(), Expression::Boolean(true)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(true)),
+                    ("y".to_string(), Expression::Boolean(true)),
+                ])),
             },
             // `if` expressions.
             TestCase {
@@ -764,19 +706,15 @@ mod tests {
                     Expression::String("foo".to_string()),
                     Expression::String("bar".to_string()),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(true)),
-                        ("foo".to_string(), Expression::Number(1.0)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(true)),
+                    ("foo".to_string(), Expression::Number(1.0)),
+                ])),
                 result: Expression::Number(1.0),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(true)),
-                        ("foo".to_string(), Expression::Number(1.0)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(true)),
+                    ("foo".to_string(), Expression::Number(1.0)),
+                ])),
             },
             TestCase {
                 expr: Expression::List(vec![
@@ -789,21 +727,17 @@ mod tests {
                         Expression::String("z".to_string()),
                     ]),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(false)),
-                        ("y".to_string(), Expression::Number(2.0)),
-                        ("z".to_string(), Expression::Number(5.0)),
-                    ]),
-                },
+                expr_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(false)),
+                    ("y".to_string(), Expression::Number(2.0)),
+                    ("z".to_string(), Expression::Number(5.0)),
+                ])),
                 result: Expression::Number(7.0),
-                result_env: Environment {
-                    env: HashMap::from([
-                        ("x".to_string(), Expression::Boolean(false)),
-                        ("y".to_string(), Expression::Number(2.0)),
-                        ("z".to_string(), Expression::Number(5.0)),
-                    ]),
-                },
+                result_env: Environment(HashMap::from([
+                    ("x".to_string(), Expression::Boolean(false)),
+                    ("y".to_string(), Expression::Number(2.0)),
+                    ("z".to_string(), Expression::Number(5.0)),
+                ])),
             },
         ];
 
@@ -906,20 +840,16 @@ mod tests {
             // Can't evaluate symbols not of type lambda.
             TestCase {
                 expr: Expression::List(vec![Expression::String("x".to_string())]),
-                expr_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Number(3.0))]),
-                },
+                expr_env: Environment(HashMap::from([("x".to_string(), Expression::Number(3.0))])),
                 result: Expression::Number(3.14),
                 result_env: Environment::new(),
             },
             TestCase {
                 expr: Expression::List(vec![Expression::String("x".to_string())]),
-                expr_env: Environment {
-                    env: HashMap::from([(
-                        "x".to_string(),
-                        Expression::String("hello".to_string()),
-                    )]),
-                },
+                expr_env: Environment(HashMap::from([(
+                    "x".to_string(),
+                    Expression::String("hello".to_string()),
+                )])),
                 result: Expression::Number(3.14),
                 result_env: Environment::new(),
             },
@@ -943,9 +873,10 @@ mod tests {
             ]),
             expr_env: Environment::new(),
             result: Expression::Boolean(true),
-            result_env: Environment {
-                env: HashMap::from([("pi".to_string(), Expression::Number(3.14))]),
-            },
+            result_env: Environment(HashMap::from([(
+                "pi".to_string(),
+                Expression::Number(3.14),
+            )])),
         }];
 
         for case in test_cases.iter() {
@@ -974,9 +905,10 @@ mod tests {
                 ]),
                 expr_env: Environment::new(),
                 result: Expression::Number(625.0),
-                result_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Number(25.0))]),
-                },
+                result_env: Environment(HashMap::from([(
+                    "x".to_string(),
+                    Expression::Number(25.0),
+                )])),
             },
             // Lambda definition.
             TestCase {
@@ -995,20 +927,18 @@ mod tests {
                 ]),
                 expr_env: Environment::new(),
                 result: Expression::Boolean(true),
-                result_env: Environment {
-                    env: HashMap::from([(
-                        "square".to_string(),
-                        Expression::Lambda {
-                            formals: vec![Expression::String("x".to_string())],
-                            body: Box::new(Expression::List(vec![
-                                Expression::String("*".to_string()),
-                                Expression::String("x".to_string()),
-                                Expression::String("x".to_string()),
-                            ])),
-                            env: HashMap::new(),
-                        },
-                    )]),
-                },
+                result_env: Environment(HashMap::from([(
+                    "square".to_string(),
+                    Expression::Lambda {
+                        formals: vec![Expression::String("x".to_string())],
+                        body: Box::new(Expression::List(vec![
+                            Expression::String("*".to_string()),
+                            Expression::String("x".to_string()),
+                            Expression::String("x".to_string()),
+                        ])),
+                        env: HashMap::new(),
+                    },
+                )])),
             },
             // Lambda evaluation, empty environment.
             TestCase {
@@ -1016,24 +946,23 @@ mod tests {
                     Expression::String("square".to_string()),
                     Expression::Number(2.0),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([(
-                        "square".to_string(),
-                        Expression::Lambda {
-                            formals: vec![Expression::String("x".to_string())],
-                            body: Box::new(Expression::List(vec![
-                                Expression::String("*".to_string()),
-                                Expression::String("x".to_string()),
-                                Expression::String("x".to_string()),
-                            ])),
-                            env: HashMap::new(),
-                        },
-                    )]),
-                },
+                expr_env: Environment(HashMap::from([(
+                    "square".to_string(),
+                    Expression::Lambda {
+                        formals: vec![Expression::String("x".to_string())],
+                        body: Box::new(Expression::List(vec![
+                            Expression::String("*".to_string()),
+                            Expression::String("x".to_string()),
+                            Expression::String("x".to_string()),
+                        ])),
+                        env: HashMap::new(),
+                    },
+                )])),
                 result: Expression::Number(4.0),
-                result_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Number(2.0))]),
-                },
+                result_env: Environment(HashMap::from([(
+                    "x".to_string(),
+                    Expression::Number(2.0),
+                )])),
             },
             // Lambda evaluation, expression argument.
             TestCase {
@@ -1045,8 +974,32 @@ mod tests {
                         Expression::Number(2.0),
                     ]),
                 ]),
-                expr_env: Environment {
-                    env: HashMap::from([(
+                expr_env: Environment(HashMap::from([(
+                    "square".to_string(),
+                    Expression::Lambda {
+                        formals: vec![Expression::String("x".to_string())],
+                        body: Box::new(Expression::List(vec![
+                            Expression::String("*".to_string()),
+                            Expression::String("x".to_string()),
+                            Expression::String("x".to_string()),
+                        ])),
+                        env: HashMap::new(),
+                    },
+                )])),
+                result: Expression::Number(25.0),
+                result_env: Environment(HashMap::from([(
+                    "x".to_string(),
+                    Expression::Number(5.0),
+                )])),
+            },
+            // Lambda evaluation, argument from environment.
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("square".to_string()),
+                    Expression::String("x".to_string()),
+                ]),
+                expr_env: Environment(HashMap::from([
+                    (
                         "square".to_string(),
                         Expression::Lambda {
                             formals: vec![Expression::String("x".to_string())],
@@ -1057,62 +1010,35 @@ mod tests {
                             ])),
                             env: HashMap::new(),
                         },
-                    )]),
-                },
-                result: Expression::Number(25.0),
-                result_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Number(5.0))]),
-                },
-            },
-            // Lambda evaluation, argument from environment.
-            TestCase {
-                expr: Expression::List(vec![
-                    Expression::String("square".to_string()),
-                    Expression::String("x".to_string()),
-                ]),
-                expr_env: Environment {
-                    env: HashMap::from([
-                        (
-                            "square".to_string(),
-                            Expression::Lambda {
-                                formals: vec![Expression::String("x".to_string())],
-                                body: Box::new(Expression::List(vec![
-                                    Expression::String("*".to_string()),
-                                    Expression::String("x".to_string()),
-                                    Expression::String("x".to_string()),
-                                ])),
-                                env: HashMap::new(),
-                            },
-                        ),
-                        ("x".to_string(), Expression::Number(7.0)),
-                    ]),
-                },
+                    ),
+                    ("x".to_string(), Expression::Number(7.0)),
+                ])),
                 result: Expression::Number(49.0),
-                result_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Number(7.0))]),
-                },
+                result_env: Environment(HashMap::from([(
+                    "x".to_string(),
+                    Expression::Number(7.0),
+                )])),
             },
             // Lambda evaluation, no formals.
             TestCase {
                 expr: Expression::List(vec![Expression::String("square".to_string())]),
-                expr_env: Environment {
-                    env: HashMap::from([(
-                        "square".to_string(),
-                        Expression::Lambda {
-                            formals: vec![],
-                            body: Box::new(Expression::List(vec![
-                                Expression::String("*".to_string()),
-                                Expression::String("x".to_string()),
-                                Expression::String("x".to_string()),
-                            ])),
-                            env: HashMap::from([("x".to_string(), Expression::Number(7.0))]),
-                        },
-                    )]),
-                },
+                expr_env: Environment(HashMap::from([(
+                    "square".to_string(),
+                    Expression::Lambda {
+                        formals: vec![],
+                        body: Box::new(Expression::List(vec![
+                            Expression::String("*".to_string()),
+                            Expression::String("x".to_string()),
+                            Expression::String("x".to_string()),
+                        ])),
+                        env: HashMap::from([("x".to_string(), Expression::Number(7.0))]),
+                    },
+                )])),
                 result: Expression::Number(49.0),
-                result_env: Environment {
-                    env: HashMap::from([("x".to_string(), Expression::Number(7.0))]),
-                },
+                result_env: Environment(HashMap::from([(
+                    "x".to_string(),
+                    Expression::Number(7.0),
+                )])),
             },
         ];
 
