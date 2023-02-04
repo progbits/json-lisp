@@ -1,6 +1,5 @@
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::env;
 use std::io;
 use std::io::Write;
 
@@ -326,7 +325,11 @@ fn evaluate(
                 }
             };
         }
-        Expression::Lambda { formals, body, env } => {
+        Expression::Lambda {
+            formals: _,
+            body: _,
+            env: _,
+        } => {
             return Err("whoops");
         }
     };
