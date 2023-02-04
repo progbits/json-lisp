@@ -22,9 +22,12 @@ and run the REPL:
 cargo run
 ```
 
+## The Language
+
 ### Primitive Expressions
 
-Primitive expressions evaluate to themselves:
+The simplist possible expressions are primitive expressions. Primitive
+expressions evaluate to themselves:
 
 ```shell
 > true
@@ -39,7 +42,18 @@ String("hello world")
 List([])
 ```
 
-### Defining Variables
+### Symbol Expressions
+
+Symbol expressions evaluate to the value bound to the symbol in the environment. For example, if the symbol `x` is bound to the value `5`:
+
+```shell
+> "x"
+Number(5.0)
+```
+
+### List Expressions
+
+#### Defining Variables
 
 Top level variables bindings are defined using the `define` keyword:
 
@@ -68,21 +82,21 @@ Boolean(true)
 Number(11.0)
 ```
 
-### Simple Expressions
+#### Simple Expressions
 
 ```shell
 > ["+", ["-", ["*", 2, 5], ["+", 3, 2]], 3]
 Number(8.0)
 ```
 
-### Conditional Expressions
+#### Conditional Expressions
 
 ```shell
 > ["if", ["and", true, false], ["+", 2.0, 3.0], ["-", 2.0, 3.0]]
 Number(-1.0)
 ```
 
-### Defining Procedures
+#### Defining Procedures
 
 Procedures are defined using the `lambda` keyword.
 
