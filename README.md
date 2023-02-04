@@ -1,5 +1,7 @@
 # json-lisp
 
+[![Build](https://github.com/progbits/json-lisp/actions/workflows/build.yaml/badge.svg?branch=main)](https://github.com/progbits/json-lisp/actions/workflows/build.yaml)
+
 A Scheme-like Lisp whose syntax is JSON lists.
 
 ## Getting Started
