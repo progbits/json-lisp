@@ -102,11 +102,16 @@ fn evaluate(
         // quoted, or otherwise to their binding in the environment.
         Expression::String(ref x) => {
             if x.starts_with("\"") && x.ends_with("\"") {
-                return Ok((expr.clone(), env.clone()));
+                let mut trim = x.trim_start_matches("\"");
+                trim = trim.trim_end_matches("\"");
+                return Ok((Expression::String(trim.to_string()), env.clone()));
             }
             match env.0.get(x) {
                 Some(y) => Ok((y.clone(), env.clone())),
-                None => Err("symbol not found in environment"),
+                None => {
+                    println!("{:?}", env);
+                    Err("symbol not found in environment")
+                }
             }
         }
         // Numeric expressions evaluate to themselves.
@@ -868,19 +873,34 @@ mod tests {
 
     #[test]
     fn basic_variable_definition() {
-        let test_cases: Vec<TestCase> = vec![TestCase {
-            expr: Expression::List(vec![
-                Expression::String("define".to_string()),
-                Expression::String("pi".to_string()),
-                Expression::Number(3.14),
-            ]),
-            expr_env: Environment::new(),
-            result: Expression::Boolean(true),
-            result_env: Environment(HashMap::from([(
-                "pi".to_string(),
-                Expression::Number(3.14),
-            )])),
-        }];
+        let test_cases: Vec<TestCase> = vec![
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("define".to_string()),
+                    Expression::String("pi".to_string()),
+                    Expression::Number(3.14),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Boolean(true),
+                result_env: Environment(HashMap::from([(
+                    "pi".to_string(),
+                    Expression::Number(3.14),
+                )])),
+            },
+            TestCase {
+                expr: Expression::List(vec![
+                    Expression::String("define".to_string()),
+                    Expression::String("pi".to_string()),
+                    Expression::String("\"3.14\"".to_string()),
+                ]),
+                expr_env: Environment::new(),
+                result: Expression::Boolean(true),
+                result_env: Environment(HashMap::from([(
+                    "pi".to_string(),
+                    Expression::String("3.14".to_string()),
+                )])),
+            },
+        ];
 
         for case in test_cases.iter() {
             let (result, result_env) = evaluate(&case.expr, &case.expr_env).unwrap();

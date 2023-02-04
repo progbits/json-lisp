@@ -30,7 +30,16 @@ Top level variables bindings are defined using the `define` keyword:
 > ["define", "x", "3"]
 Boolean(true)
 > "x"
-String("3")
+Number(3.0)
+```
+
+Strings are defined by double quoting the string value:
+
+```shell
+> ["define", "x", "\"hello world\""]
+Boolean(true)
+> "x"
+String("hello world")
 ```
 
 Variable values can themselves be expressions:
