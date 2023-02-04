@@ -15,8 +15,8 @@ Rust can be installed by following the instructions on the Rust project's
 
 ### Running the Project
 
-The `json-lisp` project provides a REPL-like environment. To build the project
-and run the REPL:
+The `json-lisp` project provides a simple, REPL-like environment. To build the
+project and run the REPL:
 
 ```shell
 cargo run
