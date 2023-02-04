@@ -22,6 +22,21 @@ and run the REPL:
 cargo run
 ```
 
+### Primitive Expressions
+
+Primitive expressions evaluate to themselves:
+
+```shell
+> true
+Boolean(true)
+> false
+Boolean(false)
+> 3.14
+Number(3.14)
+> "\"hello world\""
+String("hello world")
+```
+
 ### Defining Variables
 
 Top level variables bindings are defined using the `define` keyword:
