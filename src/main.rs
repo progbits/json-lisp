@@ -334,9 +334,7 @@ fn evaluate(
             formals: _,
             body: _,
             env: _,
-        } => {
-            return Err("whoops");
-        }
+        } => Ok((expr.clone(), env.clone())),
     };
 }
 
@@ -392,6 +390,75 @@ mod tests {
 
         assert_eq!(result, Expression::List(vec![]));
         assert!(new_env.0.is_empty())
+    }
+
+    #[test]
+    fn literal_expression() {
+        let env = Environment::new();
+        let expr = Expression::List(vec![]);
+
+        let test_cases: Vec<TestCase> = vec![
+            TestCase {
+                expr: Expression::Boolean(true),
+                expr_env: Environment::new(),
+                result: Expression::Boolean(true),
+                result_env: Environment::new(),
+            },
+            TestCase {
+                expr: Expression::String("\"hello world\"".to_string()),
+                expr_env: Environment::new(),
+                result: Expression::String("hello world".to_string()),
+                result_env: Environment::new(),
+            },
+            TestCase {
+                expr: Expression::Number(3.14),
+                expr_env: Environment::new(),
+                result: Expression::Number(3.14),
+                result_env: Environment::new(),
+            },
+            TestCase {
+                expr: Expression::String("square".to_string()),
+                expr_env: Environment(HashMap::from([(
+                    "square".to_string(),
+                    Expression::Lambda {
+                        formals: vec![],
+                        body: Box::new(Expression::List(vec![
+                            Expression::String("*".to_string()),
+                            Expression::String("x".to_string()),
+                            Expression::String("x".to_string()),
+                        ])),
+                        env: HashMap::new(),
+                    },
+                )])),
+                result: Expression::Lambda {
+                    formals: vec![],
+                    body: Box::new(Expression::List(vec![
+                        Expression::String("*".to_string()),
+                        Expression::String("x".to_string()),
+                        Expression::String("x".to_string()),
+                    ])),
+                    env: HashMap::new(),
+                },
+                result_env: Environment(HashMap::from([(
+                    "square".to_string(),
+                    Expression::Lambda {
+                        formals: vec![],
+                        body: Box::new(Expression::List(vec![
+                            Expression::String("*".to_string()),
+                            Expression::String("x".to_string()),
+                            Expression::String("x".to_string()),
+                        ])),
+                        env: HashMap::new(),
+                    },
+                )])),
+            },
+        ];
+
+        for case in test_cases.iter() {
+            let (result, result_env) = evaluate(&case.expr, &case.expr_env).unwrap();
+            assert_eq!(result, case.result);
+            assert_eq!(result_env, case.result_env);
+        }
     }
 
     #[test]

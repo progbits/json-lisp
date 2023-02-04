@@ -130,6 +130,13 @@ Boolean(true)
 Number(4.0)
 ```
 
+Procedures (lambdas) evaluate to themselves:
+
+```shell
+> "square"
+Lambda { formals: [String("x")], body: List([String("*"), String("x"), String("x")]), env: {} }
+```
+
 Procedures (lambdas) are values and can be passed around like normal variables:
 
 ```shell
