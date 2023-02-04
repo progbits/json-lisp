@@ -4,6 +4,24 @@ A Scheme-like Lisp whose syntax is JSON lists.
 
 ## Getting Started
 
+### Prerequisites
+
+Building and running the `json-lisp` project requries the following dependencies:
+
+- Rust
+
+Rust can be installed by following the instructions on the Rust project's
+[homepage](https://www.rust-lang.org/tools/install).
+
+### Running the Project
+
+The `json-lisp` project provides a REPL-like environment. To build the project
+and run the REPL:
+
+```shell
+cargo run
+```
+
 ### Defining Variables
 
 Top level variables bindings are defined using the `define` keyword:
