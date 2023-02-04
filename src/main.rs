@@ -91,27 +91,30 @@ fn get_logical_op(op: String) -> Result<Box<dyn Fn(bool, bool) -> bool>, &'stati
     }
 }
 
-/// Evaluate an expression in the context of an environment.
-fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environment), &'static str> {
+/// Evaluate an expression in the context of an environment returning a new expression and a new environment.
+fn evaluate(
+    expr: &Expression,
+    env: &Environment,
+) -> Result<(Expression, Environment), &'static str> {
     return match expr {
         // Boolean expressions evaluate to themselves.
-        Expression::Boolean(_) => Ok((expr, env)),
+        Expression::Boolean(_) => Ok((expr.clone(), env.clone())),
         // String expressions evaluate to string literals if they are double
         // quoted, or otherwise to their binding in the environment.
         Expression::String(ref x) => {
             if x.starts_with("\"") && x.ends_with("\"") {
-                return Ok((expr, env));
+                return Ok((expr.clone(), env.clone()));
             }
             match env.0.get(x) {
-                Some(y) => Ok((y.clone(), env)),
+                Some(y) => Ok((y.clone(), env.clone())),
                 None => Err("symbol not found in environment"),
             }
         }
         // Numeric expressions evaluate to themselves.
-        Expression::Number(_) => Ok((expr, env)),
+        Expression::Number(_) => Ok((expr.clone(), env.clone())),
         Expression::List(ref x) => {
             if x.len() == 0 {
-                return Ok((expr, env));
+                return Ok((expr.clone(), env.clone()));
             }
 
             let first = x.get(0).unwrap();
@@ -119,8 +122,8 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                 Expression::String(y) => match y.as_str() {
                     "define" => {
                         let id = x.get(1).unwrap().clone().must_string()?;
-                        let expr = evaluate(x.get(2).unwrap().clone(), env.clone())?;
-                        let env = env.new_with(id, expr.0);
+                        let expr = evaluate(&x.get(2).unwrap(), &env)?;
+                        let env = env.clone().new_with(id, expr.0);
                         Ok((Expression::Boolean(true), env))
                     }
                     "lambda" => {
@@ -133,14 +136,14 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                 body: Box::new(body.clone()),
                                 env: env.clone().0,
                             },
-                            env,
+                            env.clone(),
                         ))
                     }
                     // Evaluate an arithmetic expression.
                     "+" | "-" | "*" | "/" => {
                         let op = get_arithmetic_op(y.to_string())?;
-                        let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone())?;
-                        let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone())?;
+                        let (lhs, _) = evaluate(&x.get(1).unwrap(), &env)?;
+                        let (rhs, _) = evaluate(&x.get(2).unwrap(), &env)?;
                         let result = match (lhs, rhs) {
                             (Expression::Number(x), Expression::Number(y)) => {
                                 Expression::Number(op(x, y))
@@ -168,13 +171,13 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                             }
                             _ => return Err("can only add numbers"),
                         };
-                        return Ok((result, env));
+                        return Ok((result, env.clone()));
                     }
                     // Evaluate a conditional expression.
                     "=" | "<" | ">" => {
                         let op = get_conditional_op(y.to_string())?;
-                        let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone())?;
-                        let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone())?;
+                        let (lhs, _) = evaluate(&x.get(1).unwrap(), env)?;
+                        let (rhs, _) = evaluate(&x.get(2).unwrap(), &env)?;
                         let result = match (lhs, rhs) {
                             (Expression::Number(x), Expression::Number(y)) => {
                                 Expression::Boolean(op(x, y))
@@ -202,13 +205,13 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                             }
                             _ => return Err("can only add numbers"),
                         };
-                        return Ok((result, env));
+                        return Ok((result, env.clone()));
                     }
                     // Evaluate a logical operator.
                     "and" | "or" | "not" => {
                         // Handle unary `not` operator.
                         if y == "not" {
-                            let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone())?;
+                            let (lhs, _) = evaluate(&x.get(1).unwrap(), &env)?;
                             return match lhs {
                                 Expression::Boolean(b) => {
                                     Ok((Expression::Boolean(!b), env.clone()))
@@ -218,8 +221,8 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                         }
                         // Handle binary logical operators.
                         let op = get_logical_op(y.to_string())?;
-                        let (lhs, _) = evaluate(x.get(1).unwrap().clone(), env.clone())?;
-                        let (rhs, _) = evaluate(x.get(2).unwrap().clone(), env.clone())?;
+                        let (lhs, _) = evaluate(&x.get(1).unwrap(), &env)?;
+                        let (rhs, _) = evaluate(&x.get(2).unwrap(), &env)?;
                         let result = match (lhs, rhs) {
                             (Expression::Boolean(x), Expression::Boolean(y)) => {
                                 Expression::Boolean(op(x, y))
@@ -247,17 +250,17 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                             }
                             _ => return Err("can only add numbers"),
                         };
-                        return Ok((result, env));
+                        return Ok((result, env.clone()));
                     }
                     // Evaluate a conditional `if` expression.
                     "if" => {
-                        let (test, _) = evaluate(x.get(1).unwrap().clone(), env.clone())?;
+                        let (test, _) = evaluate(&x.get(1).unwrap(), &env)?;
                         match test.must_bool() {
                             Ok(b) => {
                                 if b {
-                                    evaluate(x.get(2).unwrap().clone(), env)
+                                    evaluate(&x.get(2).unwrap(), &env)
                                 } else {
-                                    evaluate(x.get(3).unwrap().clone(), env)
+                                    evaluate(&x.get(3).unwrap(), &env)
                                 }
                             }
                             Err(_) => Err("test must be a boolean expression"),
@@ -279,14 +282,11 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                                         // Populate environment with formal parameters by
                                         // evaluating each argument.
                                         for (i, f) in formals.iter().enumerate() {
-                                            let (eval, _) = evaluate(
-                                                x.get(1 + i).unwrap().clone(),
-                                                env.clone(),
-                                            )?;
+                                            let (eval, _) = evaluate(&x.get(1 + i).unwrap(), &env)?;
                                             l_env.insert(f.clone().must_string()?, eval);
                                         }
                                         // Evaluate the body of the expression.
-                                        return evaluate(*body, Environment(l_env));
+                                        return evaluate(&body, &Environment(l_env));
                                     }
                                     _ => Err("symbol is not a procedure"),
                                 }
@@ -295,10 +295,10 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                     }
                 },
                 Expression::List(_) => {
-                    let (expr, env) = evaluate(first.clone(), env).unwrap();
+                    let (expr, env) = evaluate(&first, &env).unwrap();
                     let mut xp = x.clone();
                     xp[0] = expr;
-                    evaluate(Expression::List(xp), env)
+                    evaluate(&Expression::List(xp), &env)
                 }
                 Expression::Lambda {
                     formals,
@@ -313,12 +313,12 @@ fn evaluate(expr: Expression, env: Environment) -> Result<(Expression, Environme
                             Some(a) => a.clone(),
                             None => return Err("not enough arguments"),
                         };
-                        let (eval, _) = evaluate(arg, env.clone())?;
+                        let (eval, _) = evaluate(&arg, &env)?;
                         l_env.insert(f.clone().must_string()?, eval);
                     }
                     // Evaluate the body of the expression.
                     let bdy = &**body;
-                    evaluate(bdy.clone(), Environment(l_env))
+                    evaluate(&bdy, &Environment(l_env))
                 }
                 _ => {
                     println!("this is unimplemented: {:?}", x);
@@ -351,7 +351,7 @@ fn main() {
             }
         };
 
-        match evaluate(input, env.clone()) {
+        match evaluate(&input, &env) {
             Ok((expr, new_env)) => {
                 println!("{:?}", expr);
                 env = new_env;
@@ -380,7 +380,7 @@ mod tests {
         let env = Environment::new();
         let expr = Expression::List(vec![]);
 
-        let (result, new_env) = evaluate(expr, env).unwrap();
+        let (result, new_env) = evaluate(&expr, &env).unwrap();
 
         assert_eq!(result, Expression::List(vec![]));
         assert!(new_env.0.is_empty())
@@ -742,7 +742,7 @@ mod tests {
         ];
 
         for case in test_cases.iter() {
-            let (result, result_env) = evaluate(case.expr.clone(), case.expr_env.clone()).unwrap();
+            let (result, result_env) = evaluate(&case.expr, &case.expr_env).unwrap();
             assert_eq!(result, case.result);
             assert_eq!(result_env, case.result_env);
         }
@@ -790,7 +790,7 @@ mod tests {
         ];
 
         for case in test_cases.iter() {
-            let (result, result_env) = evaluate(case.expr.clone(), case.expr_env.clone()).unwrap();
+            let (result, result_env) = evaluate(&case.expr, &case.expr_env).unwrap();
             assert_eq!(result, case.result);
             assert_eq!(result_env, case.result_env);
         }
@@ -856,7 +856,7 @@ mod tests {
         ];
 
         for case in test_cases.iter() {
-            match evaluate(case.expr.clone(), case.expr_env.clone()) {
+            match evaluate(&case.expr, &case.expr_env) {
                 Ok(_) => panic!("expected error"),
                 _ => (),
             }
@@ -880,7 +880,7 @@ mod tests {
         }];
 
         for case in test_cases.iter() {
-            let (result, result_env) = evaluate(case.expr.clone(), case.expr_env.clone()).unwrap();
+            let (result, result_env) = evaluate(&case.expr, &case.expr_env).unwrap();
             assert_eq!(result, case.result);
             assert_eq!(result_env, case.result_env);
         }
@@ -1043,7 +1043,7 @@ mod tests {
         ];
 
         for case in test_cases.iter() {
-            let (result, result_env) = evaluate(case.expr.clone(), case.expr_env.clone()).unwrap();
+            let (result, result_env) = evaluate(&case.expr, &case.expr_env).unwrap();
             assert_eq!(result, case.result);
             assert_eq!(result_env, case.result_env);
         }
