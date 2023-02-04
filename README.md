@@ -35,6 +35,8 @@ Boolean(false)
 Number(3.14)
 > "\"hello world\""
 String("hello world")
+> []
+List([])
 ```
 
 ### Defining Variables
