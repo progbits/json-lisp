@@ -123,6 +123,7 @@ fn evaluate(
 
             let first = x.get(0).unwrap();
             return match first {
+                Expression::Boolean(_) | Expression::Number(_) => Err("cannot call expression"),
                 Expression::String(y) => match y.as_str() {
                     "define" => {
                         let id = x.get(1).unwrap().clone().must_string()?;
@@ -322,9 +323,6 @@ fn evaluate(
                     }
                     // Evaluate the body of the expression.
                     evaluate(body, &Environment(lambda_env.clone()))
-                }
-                _ => {
-                    return Err("unimplemented");
                 }
             };
         }
