@@ -307,25 +307,23 @@ fn evaluate(
                 Expression::Lambda {
                     formals,
                     body,
-                    env: eenv,
+                    env: lambda_env,
                 } => {
-                    let mut l_env = eenv.clone();
                     // Populate environment with formal parameters by
                     // evaluating each argument.
+                    let mut lambda_env = lambda_env.clone();
                     for (i, f) in formals.iter().enumerate() {
                         let arg = match x.get(1 + i) {
                             Some(a) => a.clone(),
                             None => return Err("not enough arguments"),
                         };
                         let (eval, _) = evaluate(&arg, &env)?;
-                        l_env.insert(f.clone().must_string()?, eval);
+                        lambda_env.insert(f.clone().must_string()?, eval);
                     }
                     // Evaluate the body of the expression.
-                    let bdy = &**body;
-                    evaluate(&bdy, &Environment(l_env))
+                    evaluate(body, &Environment(lambda_env.clone()))
                 }
                 _ => {
-                    println!("this is unimplemented: {:?}", x);
                     return Err("unimplemented");
                 }
             };
