@@ -394,9 +394,6 @@ mod tests {
 
     #[test]
     fn literal_expression() {
-        let env = Environment::new();
-        let expr = Expression::List(vec![]);
-
         let test_cases: Vec<TestCase> = vec![
             TestCase {
                 expr: Expression::Boolean(true),
